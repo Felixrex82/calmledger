@@ -1,9 +1,9 @@
 /**
- * CalmChain Service Worker v2
+ * CalmLedger Service Worker v2
  * Handles: offline caching, push notifications, notification scheduling
  */
 
-const CACHE_NAME = 'calmchain-v2';
+const CACHE_NAME = 'calmledger-v2';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -92,8 +92,8 @@ self.addEventListener('push', e => {
   if (!e.data) return;
   try {
     const p = e.data.json();
-    e.waitUntil(showNotif(p.title || 'CalmChain', { body: p.body || '', tag: p.tag, data: p.data }));
-  } catch { e.waitUntil(showNotif('CalmChain', { body: e.data.text() })); }
+    e.waitUntil(showNotif(p.title || 'CalmLedger', { body: p.body || '', tag: p.tag, data: p.data }));
+  } catch { e.waitUntil(showNotif('CalmLedger', { body: e.data.text() })); }
 });
 
 self.addEventListener('notificationclick', e => {

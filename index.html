@@ -4,9 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0f1114" />
-<meta name="description" content="CalmChain — Crypto Wellness" />
+<meta name="description" content="CalmLedger — Crypto Wellness" />
 <link rel="manifest" href="manifest.json" />
-<title>CalmChain</title>
+<title>CalmLedger</title>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <style>
 
@@ -556,9 +556,9 @@ body::before {
 <!-- ── ONBOARDING WALL ──────────────────────────────────── -->
 <div class="onboarding" id="onboarding">
   <div class="ob-hero">
-    <div class="ob-logo">CALMCHAIN</div>
+    <div class="ob-logo">CALMLEDGER</div>
     <div class="ob-headline">Know why you trade<br>the way you do.</div>
-    <p class="ob-sub">Connect your wallet and CalmChain builds your wellness score from real on-chain behavior — not guesswork.</p>
+    <p class="ob-sub">Connect your wallet and CalmLedger builds your wellness score from real on-chain behavior — not guesswork.</p>
   </div>
 
   <div class="ob-body">
@@ -615,7 +615,7 @@ body::before {
 
     <div class="security-note">
       <span>🔒</span>
-      <span>CalmChain only reads transaction history. Your private key and seed phrase are never asked for.</span>
+      <span>CalmLedger only reads transaction history. Your private key and seed phrase are never asked for.</span>
     </div>
   </div>
 
@@ -709,7 +709,7 @@ body::before {
 
   <!-- TOP NAV -->
   <nav class="top-nav">
-    <div class="nav-logo">CalmChain</div>
+    <div class="nav-logo">CalmLedger</div>
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="showPage('home')">Today</button>
       <button class="nav-tab" onclick="showPage('coach')">Coach</button>
@@ -828,7 +828,7 @@ body::before {
         <div class="msg ai">
           <div class="msg-avatar">CC</div>
           <div class="msg-bubble">
-            <p>I am your CalmChain coach.</p>
+            <p>I am your CalmLedger coach.</p>
             <p>Tell me what is on your mind — a trade you are considering, a loss you are processing, or how the market is making you feel right now.</p>
           </div>
         </div>
@@ -1074,7 +1074,7 @@ async function generateInsightCards() {
   }
   if (appData.streak > 0) ctx.push(`Check-in streak: ${appData.streak} days`);
 
-  const prompt = `You are CalmChain's wellness engine. Generate 3 behavioral insight cards for a crypto trader.
+  const prompt = `You are CalmLedger's wellness engine. Generate 3 behavioral insight cards for a crypto trader.
 
 Context:
 - Time: ${timeOfDay} on ${dayName}
@@ -1825,7 +1825,7 @@ function restoreJournal() {
 // ─────────────────────────────────────────────────────────────
 // AI COACH WITH MEMORY
 // ─────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are the CalmChain wellness coach — a composed, perceptive companion for crypto traders navigating the emotional weight of markets.
+const SYSTEM_PROMPT = `You are the CalmLedger wellness coach — a composed, perceptive companion for crypto traders navigating the emotional weight of markets.
 
 Your users trade across all time zones and all markets. Some are beginners, some are professionals. Some are in high-inflation environments where crypto is survival, not speculation.
 
@@ -1962,7 +1962,7 @@ function scheduleNotifications() {
       schedule: {
         morningCheckin: { hour:8,  minute:0,  title:'Morning check-in', body:'How are you feeling before the markets open?' },
         eveningReflect: { hour:20, minute:0,  title:'Evening reflection', body:'Take a moment to journal today.' },
-        weeklyReport:   { day:0,   hour:9,    minute:0, title:'Weekly wellness', body:'Your CalmChain weekly summary is ready.' },
+        weeklyReport:   { day:0,   hour:9,    minute:0, title:'Weekly wellness', body:'Your CalmLedger weekly summary is ready.' },
       }
     });
   });
@@ -2000,7 +2000,7 @@ function showToast(icon, msg) {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(() => console.log('CalmChain SW ready'))
+      .then(() => console.log('CalmLedger SW ready'))
       .catch(e => console.log('SW:', e));
   });
 }
