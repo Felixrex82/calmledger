@@ -1,6 +1,6 @@
 {
-  "name": "calmchain",
+  "name": "calmledger",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": "18.x" }
+  "engines": { "node": "24.x" }
 }
