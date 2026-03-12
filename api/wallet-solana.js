@@ -29,7 +29,14 @@ export default async function handler(req, res) {
 
   const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
   if (!HELIUS_API_KEY) {
-    return res.status(500).json({ error: 'Helius API key not configured' });
+    // No Helius key configured — return empty stats gracefully
+    // Solana analysis is optional; EVM analysis will still run
+    return res.status(200).json({
+      transactions: [],
+      chainsScanned: [],
+      dexSources: [],
+      stats: emptyStats()
+    });
   }
 
   try {
