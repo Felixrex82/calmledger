@@ -13,11 +13,11 @@
  */
 
 const CHAIN_CONFIGS = {
-  eth:     { name: 'Ethereum', api: 'https://api.etherscan.io/api',     key: process.env.ETHERSCAN_API_KEY,  symbol: 'ETH'   },
-  bsc:     { name: 'BNB Chain', api: 'https://api.bscscan.com/api',     key: process.env.BSCSCAN_API_KEY,    symbol: 'BNB'   },
-  polygon: { name: 'Polygon',  api: 'https://api.polygonscan.com/api',  key: process.env.ETHERSCAN_API_KEY,  symbol: 'MATIC' },
-  arb:     { name: 'Arbitrum', api: 'https://api.arbiscan.io/api',      key: process.env.ETHERSCAN_API_KEY,  symbol: 'ETH'   },
-  base:    { name: 'Base',     api: 'https://api.basescan.org/api',     key: process.env.ETHERSCAN_API_KEY,  symbol: 'ETH'   },
+  eth:     { name: 'Ethereum', api: 'https://api.etherscan.io/v2/api',     chainid: 1,     key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH' },
+  bsc:     { name: 'BNB Chain', api: 'https://api.etherscan.io/v2/api',    chainid: 56,    key: process.env.BSCSCAN_API_KEY,   symbol: 'BNB' },
+  polygon: { name: 'Polygon',  api: 'https://api.etherscan.io/v2/api',     chainid: 137,   key: process.env.ETHERSCAN_API_KEY, symbol: 'MATIC' },
+  arb:     { name: 'Arbitrum', api: 'https://api.etherscan.io/v2/api',     chainid: 42161, key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH' },
+  base:    { name: 'Base',     api: 'https://api.etherscan.io/v2/api',     chainid: 8453,  key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH' },
 };
 
 export default async function handler(req, res) {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     }
 
     const apiKey = cfg.key || 'YourApiKeyToken';
-    const baseParams = `&address=${address}&page=1&sort=desc&apikey=${apiKey}`;
+    const baseParams = `&chainid=${cfg.chainid}&address=${address}&page=1&sort=desc&apikey=${apiKey}`;
 
     // ── Fetch regular transactions ──
     if (type === 'tx' || type === 'both') {
