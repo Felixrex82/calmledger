@@ -158,4 +158,76 @@ export default async function handler(req, res) {
   };
 
   return res.status(200).json(results);
+
+//   // ── Wallet Stress Score ──
+// let stressScore = 0;
+// const signals = [];
+
+// // rapid trading bursts
+// if (results.stats.rapidFireCount > 3) {
+//   stressScore += 25;
+//   signals.push("rapid trading bursts");
+// }
+
+// // late night activity
+// if (results.stats.lateNightCount > 2) {
+//   stressScore += 20;
+//   signals.push("late night activity");
+// }
+
+// // failed transactions
+// if (results.stats.failedCount > 1) {
+//   stressScore += 20;
+//   signals.push("multiple failed transactions");
+// }
+
+// // heavy recent activity
+// if (results.stats.last30Days > 50) {
+//   stressScore += 15;
+//   signals.push("high activity in last 30 days");
+// }
+
+// // trading intensity
+// if (results.stats.avgPerActiveDay > 5) {
+//   stressScore += 20;
+//   signals.push("high trading intensity");
+// }
+
+// // classify stress level
+// let stressLevel = "Low";
+// if (stressScore >= 70) stressLevel = "High";
+// else if (stressScore >= 40) stressLevel = "Moderate";
+
+// results.stressAnalysis = {
+//   stressScore,
+//   stressLevel,
+//   signals
+// };
+
+// let profile = "Unknown";
+// let signals = [];
+
+// if (results.stats.rapidFireCount > 5) {
+//   signals.push("rapid transaction bursts");
+// }
+
+// if (results.stats.lateNightCount > 3) {
+//   signals.push("late night activity");
+// }
+
+// if (results.stats.failedCount > 2) {
+//   signals.push("multiple failed transactions");
+// }
+
+// if (signals.length >= 2) {
+//   profile = "High Stress Trader";
+// } else if (results.stats.totalTransactions < 10) {
+//   profile = "Calm Holder";
+// }
+
+// results.behaviorProfile = {
+//   profile,
+//   signals
+// };
 }
+
