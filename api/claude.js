@@ -1,9 +1,10 @@
 /**
- * CalmChain — Anthropic Claude Proxy
+ * CalmLedger — OpenAI Proxy
  * Vercel Serverless Function: /api/claude
  *
- * Keeps the Anthropic API key server-side.
- * Browser sends messages → this function forwards to Anthropic → returns response.
+ * Drop-in replacement for the Anthropic proxy.
+ * Same endpoint (/api/claude), same request format from the frontend.
+ * Translates to OpenAI's chat completions API internally.
  */
 
 export default async function handler(req, res) {
@@ -15,27 +16,53 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured on server' });
+    return res.status(500).json({ error: 'OPENAI_API_KEY not configured on server' });
   }
 
   try {
-    const { messages, system, max_tokens = 800, model = 'claude-sonnet-4-20250514' } = req.body;
+    // ── Parse body manually (Vercel ES modules don't auto-parse) ──
+    let parsed = req.body;
+    if (!parsed || typeof parsed === 'string') {
+      try {
+        const raw = await new Promise((resolve, reject) => {
+          let data = '';
+          req.on('data', chunk => data += chunk);
+          req.on('end', () => resolve(data));
+          req.on('error', reject);
+        });
+        parsed = JSON.parse(raw);
+      } catch {
+        return res.status(400).json({ error: 'Invalid JSON body' });
+      }
+    }
+
+    const { messages, system, max_tokens = 800 } = parsed;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'messages array required' });
     }
 
-    const body = { model, max_tokens, messages };
-    if (system) body.system = system;
+    // ── Build OpenAI messages array ──
+    // OpenAI uses a "system" message at the start instead of a separate field
+    const openaiMessages = [];
+    if (system) {
+      openaiMessages.push({ role: 'system', content: system });
+    }
+    openaiMessages.push(...messages);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const body = {
+      model: 'gpt-4o-mini',   // Cheap, fast, very capable — $0.15/1M input tokens
+      max_tokens,
+      messages: openaiMessages,
+    };
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
     });
@@ -43,12 +70,25 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: data.error?.message || 'Anthropic API error' });
+      console.error('OpenAI error:', data);
+      return res.status(response.status).json({ error: data.error?.message || 'OpenAI API error' });
     }
 
-    return res.status(200).json(data);
+    // ── Translate OpenAI response format → Anthropic format ──
+    // Frontend expects: data.content[0].text
+    // OpenAI returns:   data.choices[0].message.content
+    const translated = {
+      content: [
+        { type: 'text', text: data.choices?.[0]?.message?.content || '' }
+      ],
+      model: data.model,
+      usage: data.usage,
+    };
+
+    return res.status(200).json(translated);
+
   } catch (err) {
-    console.error('Claude proxy error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('OpenAI proxy error:', err);
+    return res.status(500).json({ error: 'Internal server error', detail: err.message });
   }
 }
