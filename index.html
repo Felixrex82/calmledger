@@ -1714,10 +1714,11 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
   } catch(e) {
     const isPreview = PROXY_BASE === null;
     if (e.rateLimited) {
-      const mins = Math.ceil((e.retryAfter || 60) / 60);
-      showToast('⏱', `Groq rate limit — resets in ~${mins} min. Score kept from last run.`);
-      // Clear the daily lock so it retries next page load
-      localStorage.removeItem('cc_last_analysis');
+      const secs = e.retryAfter || 60;
+      const waitMsg = secs < 90 ? `~${secs} seconds` : `~${Math.ceil(secs / 60)} minutes`;
+      showToast('⏱', `Groq rate limit — resets in ${waitMsg}. Try again shortly.`);
+      // Keep the daily lock — don't clear it, so it doesn't spam on every reload
+      // User can manually reload after the wait
       setDisplay('analysisLoader', 'none');
       // Restore last known score if available
       const last = appData.scoreHistory.slice(-1)[0];
@@ -1727,7 +1728,7 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
         const ring = document.getElementById('scoreRing');
         if (ring) { ring.style.stroke = color; ring.style.strokeDashoffset = 251.2 - (last.score/100)*251.2; }
         setText('scoreHeadline', 'Rate limited — last score shown');
-        setText('scoreBody', `Groq free tier limit hit. Will retry automatically. Score is from your last analysis.`);
+        setText('scoreBody', `Groq allows one analysis per minute. Wait ${waitMsg} then reload to run a fresh analysis.`);
       }
       return;
     }
