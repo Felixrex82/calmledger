@@ -1191,8 +1191,22 @@ function bootApp() {
   renderWeekBars();
   updateProgressStats();
 
-  // Always analyze on load — gives fresh score every session
-  analyzeWallet();
+  // Analyze once per day — avoids burning API credits on every reload
+  const lastAnalysis = localStorage.getItem('cc_last_analysis');
+  const today = new Date().toDateString();
+  if (lastAnalysis !== today) {
+    localStorage.setItem('cc_last_analysis', today);
+    analyzeWallet();
+  } else {
+    // Still show last saved score from history
+    const last = appData.scoreHistory.slice(-1)[0];
+    if (last) {
+      document.getElementById('scoreNum').textContent = last.score;
+      const color = last.score >= 70 ? 'var(--sage)' : last.score >= 45 ? 'var(--amber)' : 'var(--terra)';
+      const ring = document.getElementById('scoreRing');
+      if (ring) { ring.style.stroke = color; ring.style.strokeDashoffset = 251.2 - (last.score/100)*251.2; }
+    }
+  }
 
   // Generate AI insight cards — fresh every session
   generateInsightCards();
@@ -1417,7 +1431,6 @@ async function analyzeWallet() {
 function mergeStats(evm, sol) {
   if (!evm && !sol) return null;
   const e = evm || {}, s = sol || {};
-  // Map api-wallet.js field names → internal names
   return {
     lateNightTrades: (e.lateNightCount||e.lateNightTrades||0) + (s.lateNightCount||s.lateNightTrades||0),
     panicPatterns:   (e.rapidFireCount||e.panicPatterns||0)   + (s.rapidFireCount||s.panicPatterns||0),
@@ -1425,6 +1438,10 @@ function mergeStats(evm, sol) {
     totalTrades:     (e.last30Days||e.totalTrades||0)          + (s.last30Days||s.totalTrades||0),
     activeDays:      Math.max(e.activeDays||0, s.activeDays||0),
     avgTradesPerDay: parseFloat(e.avgPerActiveDay||e.avgTradesPerDay||0),
+    // New enriched fields from wallet proxy
+    behaviorProfile: evm?.behaviorProfile || null,
+    stressAnalysis:  evm?.stressAnalysis  || null,
+    calmAdvice:      evm?.calmAdvice      || null,
   };
 }
 
@@ -1434,24 +1451,33 @@ async function runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr) {
     ? `Analyze this crypto trader's on-chain activity and give a wellness assessment.
 
 Wallet: EVM=${evmAddr||'none'}, Solana=${solAddr||'none'}
+
 Behavioral stats (last 30 days):
 - Late-night trades (11pm-6am): ${stats?.lateNightTrades ?? 'unknown'}
-- Panic/rapid-fire patterns: ${stats?.panicPatterns ?? 'unknown'}  
+- Panic/rapid-fire patterns: ${stats?.panicPatterns ?? 'unknown'}
 - Failed transactions: ${stats?.failedTxns ?? 'unknown'}
 - Total trades: ${stats?.totalTrades ?? 'unknown'}
 - Active trading days: ${stats?.activeDays ?? 'unknown'}
 - Avg trades per active day: ${stats?.avgTradesPerDay ?? 'unknown'}
 
+Pre-computed analysis:
+- Behavior profile: ${stats?.behaviorProfile?.profile ?? 'Unknown'}
+- Stress score: ${stats?.stressAnalysis?.stressScore ?? 0}/100 (${stats?.stressAnalysis?.stressLevel ?? 'Low'})
+- Stress signals: ${JSON.stringify(stats?.stressAnalysis?.signals ?? [])}
+- Baseline recommendation: ${stats?.calmAdvice?.message ?? 'none'}
+
 Recent transactions (up to 20): ${JSON.stringify(txns.slice(0,20))}
 
 ${memCtx}
 
+Use the pre-computed stress score and behavior profile as a strong signal. Your wellness score should correlate with the stress level (High stress = lower score). Be specific to their actual data.
+
 Respond with a JSON object only, no markdown:
 {
-  "score": <integer 1-100>,
+  "score": <integer 1-100, where 100=perfectly calm, low stress score means lower wellness>,
   "headline": <5 words max, calm tone>,
   "summary": <2 sentences, specific to their data>,
-  "insight": <1 sentence, a fresh behavioral observation specific to this user's data — changes every analysis, reads like something a thoughtful coach noticed, not a generic tip>,
+  "insight": <1 sentence, a fresh behavioral observation specific to this user — reads like something a thoughtful coach noticed>,
   "topConcern": <single biggest behavioral risk, null if none>,
   "riskLevel": "low|moderate|high",
   "lateNightTrades": <number from stats>,
