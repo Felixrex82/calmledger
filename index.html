@@ -899,11 +899,12 @@ body::before {
 
     <div class="card">
       <!-- Period tabs -->
-      <div style="display:flex;gap:6px;margin-bottom:14px;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
         <button class="period-tab active" id="ptab-today" onclick="switchPeriod('today')">Today</button>
         <button class="period-tab" id="ptab-week" onclick="switchPeriod('week')">This Week</button>
         <button class="period-tab" id="ptab-month" onclick="switchPeriod('month')">This Month</button>
       </div>
+      <div id="periodSubtitle" style="font-size:0.72rem;color:var(--text-3);margin-bottom:12px;letter-spacing:0.04em;">Last 30 days</div>
       <div class="analysis-row">
         <span class="analysis-label">Late-night trades</span>
         <span class="analysis-val" id="pLateNight" style="color:var(--amber);">—</span>
@@ -1898,11 +1899,17 @@ function updateProgressStats() {
   }
   const uniqueDays = new Set(periodTxns.map(tx=>new Date((tx.timeStamp||0)*1000).toDateString()));
 
-  set('pLateNight', lateNight || realData?.lateNightTrades || '—');
-  set('pPanic',     panic     || realData?.panicPatterns   || '—');
-  set('pFailed',    failed    || realData?.failedTxns      || '—');
-  set('pTotal',     periodTxns.length || realData?.totalTrades || '—');
-  set('pActiveDays', uniqueDays.size || realData?.activeDays || '—');
+  // Use period-filtered counts only — never fall back to all-time realData
+  // (that made Today/Week/Month all show the same numbers)
+  const periodLabel = currentPeriod === 'today' ? 'Last 24 hours' : currentPeriod === 'week' ? 'Last 7 days' : 'Last 30 days';
+  const sub = document.getElementById('periodSubtitle');
+  if (sub) sub.textContent = periodLabel + ' · ' + periodTxns.length + ' transaction' + (periodTxns.length !== 1 ? 's' : '');
+  const fmt = n => n === 0 ? '0' : (n || '—');
+  set('pLateNight',  fmt(lateNight));
+  set('pPanic',      fmt(panic));
+  set('pFailed',     fmt(failed));
+  set('pTotal',      fmt(periodTxns.length));
+  set('pActiveDays', fmt(uniqueDays.size));
 
   // Self-reported — also filtered by period
   const checkins = appData.checkins.filter(c => Date.now() - new Date(c.ts).getTime() < periodMs).length;
@@ -1920,21 +1927,26 @@ function updateProgressStats() {
     if (periodTxns.length === 0) {
       txList.innerHTML = '<p style="font-size:0.78rem;color:var(--text-3);margin-top:4px;">No transactions in this period.</p>';
     } else {
-      txList.innerHTML = '<div class="card-label" style="margin-bottom:8px;">Transactions</div>' +
-        periodTxns.slice(0, 15).map(tx => {
-          const ts = (tx.timeStamp || tx.timestamp || 0) * 1000;
-          const time = ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-          const h = new Date(ts).getHours();
-          const isLate = h >= 23 || h < 6;
-          return `<div class="tx-item">
-            <div class="tx-icon">\${tx.type==='swap'?'⇄':'↑'}</div>
-            <div class="tx-main">
-              <div class="tx-title">\${tx.description||tx.type||'Transaction'}\${isLate?'<span class="tx-badge late">late</span>':''}\${tx.isError?'<span class="tx-badge panic">failed</span>':''}</div>
-              <div class="tx-sub">\${tx.chainName||tx.chain||'Solana'}</div>
-            </div>
-            <div class="tx-time">\${time}</div>
-          </div>`;
-        }).join('');
+      const rows = periodTxns.slice(0, 15).map(tx => {
+        const ts = (tx.timeStamp || tx.timestamp || 0) * 1000;
+        const time = ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        const h = new Date(ts).getHours();
+        const isLate = h >= 23 || h < 6;
+        const icon  = tx.type === 'swap' ? '⇄' : '↑';
+        const title = tx.description || tx.type || 'Transaction';
+        const lateBadge   = isLate        ? '<span class="tx-badge late">late night</span>' : '';
+        const failBadge   = tx.isError    ? '<span class="tx-badge panic">failed</span>'    : '';
+        const chain = tx.chainName || tx.chain || 'Solana';
+        return '<div class="tx-item">'
+          + '<div class="tx-icon">' + icon + '</div>'
+          + '<div class="tx-main">'
+          +   '<div class="tx-title">' + title + lateBadge + failBadge + '</div>'
+          +   '<div class="tx-sub">'  + chain + '</div>'
+          + '</div>'
+          + '<div class="tx-time">' + time + '</div>'
+          + '</div>';
+      });
+      txList.innerHTML = '<div class="card-label" style="margin-bottom:8px;">Transactions</div>' + rows.join('');
     }
   }
 
