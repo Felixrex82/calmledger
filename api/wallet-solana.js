@@ -64,50 +64,116 @@ function computeStats(transactions) {
 // Uses the Enhanced Transactions API (v0 /parsed-transactions)
 // Docs: https://docs.helius.dev/solana-apis/enhanced-transactions-api
 async function fetchHelius(address, apiKey) {
-  // Helius Enhanced Transactions API
-  // Returns { ok, transactions, error }
-  const url = `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=100&type=ANY`;
-  let res;
+  // Two-step approach that works for ALL transaction types including plain SOL transfers:
+  // Step 1: getSignaturesForAddress via standard RPC — returns up to 100 recent sigs
+  // Step 2: parse enhanced details for those sigs in one batch POST call
+  const rpcUrl = `https://mainnet.helius-rpc.com/?api-key=${apiKey}`;
+
+  // ── Step 1: get signatures ──
+  let sigRes;
   try {
-    res = await fetch(url);
+    sigRes = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1,
+        method: 'getSignaturesForAddress',
+        params: [ address, { limit: 50, commitment: 'finalized' } ],
+      }),
+    });
   } catch(e) {
-    console.warn('[solana/helius] network error:', e.message);
-    return { ok: false, transactions: [], error: e.message };
+    return { ok: false, transactions: [], error: 'getSignaturesForAddress network error: ' + e.message };
   }
 
-  const body = await res.text();
-
-  if (!res.ok) {
-    console.warn('[solana/helius] non-ok:', res.status, body.slice(0, 300));
-    return { ok: false, transactions: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+  const sigBody = await sigRes.text();
+  if (!sigRes.ok) {
+    return { ok: false, transactions: [], error: `getSignaturesForAddress HTTP ${sigRes.status}: ${sigBody.slice(0,200)}` };
   }
 
-  let raw;
-  try { raw = JSON.parse(body); } catch(e) {
-    console.warn('[solana/helius] JSON parse error:', body.slice(0, 200));
-    return { ok: false, transactions: [], error: 'Invalid JSON response' };
+  let sigJson;
+  try { sigJson = JSON.parse(sigBody); } catch(e) {
+    return { ok: false, transactions: [], error: 'getSignaturesForAddress JSON parse error' };
   }
 
-  if (!Array.isArray(raw)) {
-    console.warn('[solana/helius] unexpected shape:', JSON.stringify(raw).slice(0, 300));
-    return { ok: false, transactions: [], error: 'Unexpected response shape: ' + JSON.stringify(raw).slice(0,100) };
+  if (sigJson.error) {
+    console.warn('[solana/helius] RPC error:', sigJson.error);
+    return { ok: false, transactions: [], error: 'RPC: ' + JSON.stringify(sigJson.error) };
   }
 
-  console.log('[solana/helius] ok — tx count:', raw.length);
+  const sigs = (sigJson.result || []).map(s => s.signature);
+  console.log('[solana/helius] signatures fetched:', sigs.length);
+
+  if (sigs.length === 0) {
+    // Wallet exists but has no transactions
+    return { ok: true, transactions: [], error: null };
+  }
+
+  // ── Step 2: parse enhanced transactions ──
+  let txRes;
+  try {
+    txRes = await fetch(`https://api-mainnet.helius-rpc.com/v0/transactions?api-key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: sigs }),
+    });
+  } catch(e) {
+    // Step 2 failed — fall back to raw signature data only
+    console.warn('[solana/helius] enhanced parse failed, using raw sigs:', e.message);
+    return buildFromSigs(sigJson.result, address);
+  }
+
+  const txBody = await txRes.text();
+  if (!txRes.ok) {
+    console.warn('[solana/helius] enhanced parse non-ok:', txRes.status, '— falling back to raw sigs');
+    return buildFromSigs(sigJson.result, address);
+  }
+
+  let txJson;
+  try { txJson = JSON.parse(txBody); } catch(e) {
+    return buildFromSigs(sigJson.result, address);
+  }
+
+  if (!Array.isArray(txJson)) {
+    console.warn('[solana/helius] unexpected enhanced shape, falling back');
+    return buildFromSigs(sigJson.result, address);
+  }
+
+  console.log('[solana/helius] enhanced txns:', txJson.length);
   return {
     ok: true,
-    transactions: raw.map(tx => ({
+    transactions: txJson.map(tx => ({
       hash:        tx.signature || '',
       timeStamp:   tx.timestamp || 0,
-      from:        address,
-      to:          tx.instructions?.[0]?.accounts?.[1] || '',
+      from:        tx.feePayer || address,
+      to:          tx.nativeTransfers?.[0]?.toUserAccount || '',
       value:       String(tx.nativeTransfers?.[0]?.amount || 0),
-      isError:     tx.transactionError !== null && tx.transactionError !== undefined,
+      isError:     !!tx.transactionError,
       type:        tx.type || 'TRANSACTION',
       chainName:   'Solana',
       chainKey:    'sol',
       symbol:      'SOL',
       description: tx.description || tx.type || 'Solana transaction',
+    })),
+    error: null,
+  };
+}
+
+// Fallback: build minimal transaction objects from raw signature list
+function buildFromSigs(sigResults, address) {
+  return {
+    ok: true,
+    transactions: (sigResults || []).map(s => ({
+      hash:        s.signature,
+      timeStamp:   s.blockTime || 0,
+      from:        address,
+      to:          '',
+      value:       '0',
+      isError:     !!s.err,
+      type:        'TRANSACTION',
+      chainName:   'Solana',
+      chainKey:    'sol',
+      symbol:      'SOL',
+      description: s.memo || 'Solana transaction',
     })),
     error: null,
   };
