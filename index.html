@@ -1603,8 +1603,9 @@ async function analyzeWallet() {
           const res = await fetch(`${PROXY_BASE}/api/wallet-solana?address=${sol}`);
           if (res.ok) {
             solData = await res.json();
-            if (solData?.warning) console.warn('[wallet] Solana warning:', solData.warning);
-            if (solData?.error)   console.warn('[wallet] Solana error:', solData.error);
+            if (solData?.warning)   console.warn('[wallet] Solana warning:', solData.warning);
+            if (solData?.error)     console.warn('[wallet] Solana error:', solData.error);
+            if (solData?.apiErrors) console.warn('[wallet] Solana API errors:', solData.apiErrors);
             console.log('[wallet] Solana provider:', solData?.provider, '| txns:', solData?.transactions?.length);
           } else {
             const errTxt = await res.text().catch(() => '');

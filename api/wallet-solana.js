@@ -64,66 +64,97 @@ function computeStats(transactions) {
 // Uses the Enhanced Transactions API (v0 /parsed-transactions)
 // Docs: https://docs.helius.dev/solana-apis/enhanced-transactions-api
 async function fetchHelius(address, apiKey) {
+  // Helius Enhanced Transactions API
+  // Returns { ok, transactions, error }
   const url = `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=100&type=ANY`;
-  const res = await fetch(url);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch(e) {
+    console.warn('[solana/helius] network error:', e.message);
+    return { ok: false, transactions: [], error: e.message };
+  }
+
+  const body = await res.text();
+
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    console.warn('[solana/helius] non-ok:', res.status, body.slice(0, 200));
-    return [];
+    console.warn('[solana/helius] non-ok:', res.status, body.slice(0, 300));
+    return { ok: false, transactions: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
   }
-  const raw = await res.json();
+
+  let raw;
+  try { raw = JSON.parse(body); } catch(e) {
+    console.warn('[solana/helius] JSON parse error:', body.slice(0, 200));
+    return { ok: false, transactions: [], error: 'Invalid JSON response' };
+  }
+
   if (!Array.isArray(raw)) {
-    console.warn('[solana/helius] unexpected response shape:', JSON.stringify(raw).slice(0, 200));
-    return [];
+    console.warn('[solana/helius] unexpected shape:', JSON.stringify(raw).slice(0, 300));
+    return { ok: false, transactions: [], error: 'Unexpected response shape: ' + JSON.stringify(raw).slice(0,100) };
   }
+
   console.log('[solana/helius] ok — tx count:', raw.length);
-  return raw.map(tx => ({
-    hash:        tx.signature || '',
-    timeStamp:   tx.timestamp || 0,
-    from:        address,
-    to:          tx.instructions?.[0]?.accounts?.[1] || '',
-    value:       String(tx.nativeTransfers?.[0]?.amount || 0),
-    isError:     tx.transactionError !== null && tx.transactionError !== undefined,
-    type:        tx.type || 'TRANSACTION',
-    chainName:   'Solana',
-    chainKey:    'sol',
-    symbol:      'SOL',
-    description: tx.description || tx.type || 'Solana transaction',
-  }));
+  return {
+    ok: true,
+    transactions: raw.map(tx => ({
+      hash:        tx.signature || '',
+      timeStamp:   tx.timestamp || 0,
+      from:        address,
+      to:          tx.instructions?.[0]?.accounts?.[1] || '',
+      value:       String(tx.nativeTransfers?.[0]?.amount || 0),
+      isError:     tx.transactionError !== null && tx.transactionError !== undefined,
+      type:        tx.type || 'TRANSACTION',
+      chainName:   'Solana',
+      chainKey:    'sol',
+      symbol:      'SOL',
+      description: tx.description || tx.type || 'Solana transaction',
+    })),
+    error: null,
+  };
 }
 
 // ── Solscan Pro v2: fetch account transactions ────────────────
 // Docs: https://pro-api.solscan.io/pro-api-docs/v2.0
 async function fetchSolscan(address, apiKey) {
-  // Solscan Pro v2 — correct endpoint and auth header
   const url = `https://pro-api.solscan.io/v2.0/account/transactions?address=${address}&page=1&page_size=100`;
-  const res = await fetch(url, {
-    headers: {
-      'token': apiKey,
-    }
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    console.warn('[solana/solscan] non-ok:', res.status, body.slice(0, 200));
-    return [];
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'token': apiKey } });
+  } catch(e) {
+    console.warn('[solana/solscan] network error:', e.message);
+    return { ok: false, transactions: [], error: e.message };
   }
-  const json = await res.json();
-  // v2 response: { success: true, data: [...] }
+
+  const body = await res.text();
+  if (!res.ok) {
+    console.warn('[solana/solscan] non-ok:', res.status, body.slice(0, 300));
+    return { ok: false, transactions: [], error: `HTTP ${res.status}: ${body.slice(0, 200)}` };
+  }
+
+  let json;
+  try { json = JSON.parse(body); } catch(e) {
+    return { ok: false, transactions: [], error: 'Invalid JSON response' };
+  }
+
   const raw = Array.isArray(json.data) ? json.data : [];
   console.log('[solana/solscan] ok — tx count:', raw.length);
-  return raw.map(tx => ({
-    hash:        tx.txHash || tx.signature || '',
-    timeStamp:   tx.blockTime || 0,
-    from:        address,
-    to:          tx.parsedInstruction?.[0]?.programId || '',
-    value:       '0',
-    isError:     tx.status === 'fail' || tx.status === 'Fail',
-    type:        tx.parsedInstruction?.[0]?.type || 'transaction',
-    chainName:   'Solana',
-    chainKey:    'sol',
-    symbol:      'SOL',
-    description: tx.parsedInstruction?.[0]?.type || 'Solana transaction',
-  }));
+  return {
+    ok: true,
+    transactions: raw.map(tx => ({
+      hash:        tx.txHash || tx.signature || '',
+      timeStamp:   tx.blockTime || 0,
+      from:        address,
+      to:          tx.parsedInstruction?.[0]?.programId || '',
+      value:       '0',
+      isError:     tx.status === 'fail' || tx.status === 'Fail',
+      type:        tx.parsedInstruction?.[0]?.type || 'transaction',
+      chainName:   'Solana',
+      chainKey:    'sol',
+      symbol:      'SOL',
+      description: tx.parsedInstruction?.[0]?.type || 'Solana transaction',
+    })),
+    error: null,
+  };
 }
 
 export default async function handler(req, res) {
@@ -158,19 +189,32 @@ export default async function handler(req, res) {
     let transactions = [];
     let provider = 'none';
 
+    const errors = [];
+
     // ── Try Helius first (recommended — free tier) ──
-    if (HELIUS_API_KEY && transactions.length === 0) {
-      transactions = await fetchHelius(address, HELIUS_API_KEY);
-      if (transactions.length > 0) provider = 'helius';
+    if (HELIUS_API_KEY) {
+      const result = await fetchHelius(address, HELIUS_API_KEY);
+      if (result.ok) {
+        transactions = result.transactions;
+        provider = 'helius';
+        // provider stays 'helius' even if 0 txns — wallet just has no history
+      } else {
+        errors.push('Helius: ' + result.error);
+      }
     }
 
-    // ── Fall back to Solscan ──
-    if (SOLSCAN_API_KEY && transactions.length === 0) {
-      transactions = await fetchSolscan(address, SOLSCAN_API_KEY);
-      if (transactions.length > 0) provider = 'solscan';
+    // ── Fall back to Solscan if Helius errored (not just empty) ──
+    if (SOLSCAN_API_KEY && provider === 'none') {
+      const result = await fetchSolscan(address, SOLSCAN_API_KEY);
+      if (result.ok) {
+        transactions = result.transactions;
+        provider = 'solscan';
+      } else {
+        errors.push('Solscan: ' + result.error);
+      }
     }
 
-    console.log(`[solana] provider=${provider} transactions=${transactions.length} address=${address.slice(0,8)}...`);
+    console.log(`[solana] provider=${provider} txns=${transactions.length} errors=${JSON.stringify(errors)} address=${address.slice(0,8)}...`);
 
     transactions.sort((a, b) => b.timeStamp - a.timeStamp);
 
@@ -179,6 +223,8 @@ export default async function handler(req, res) {
       chainsScanned: transactions.length > 0 ? ['Solana'] : [],
       stats: computeStats(transactions),
       provider,
+      // errors array tells you exactly why a provider failed, even if overall response is 200
+      apiErrors: errors.length > 0 ? errors : undefined,
     });
 
   } catch (err) {
