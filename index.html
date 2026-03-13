@@ -1476,13 +1476,11 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
 }`;
 
   try {
-    const d = await claudeFetch([{ role: 'user', content: prompt }], null, 800);
+    const sysPrompt = 'You are a JSON API. Respond with a single valid JSON object only. No markdown, no explanation, no text outside the JSON. All string values must use double quotes.';
+    const d = await claudeFetch([{ role: 'user', content: prompt }], sysPrompt, 800);
     const raw = d.content?.map(c => c.text||'').join('') || '';
-    // Strip markdown fences, then sanitize control characters that break JSON.parse
-    const clean = raw
-      .replace(/```json|```/g, '')
-      .trim()
-      .replace(/^[\s\S]*?({[\s\S]*})[\s\S]*$/, '$1')
+    // Extract JSON object and parse
+    const clean = raw.replace(/```json|```/g, '').trim().replace(/^[\s\S]*?({[\s\S]*})[\s\S]*$/, '$1');
     const data = JSON.parse(clean);
     realData = data;
     applyAnalysis(data, txns, hasReal, stats);
