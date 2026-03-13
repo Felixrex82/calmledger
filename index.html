@@ -1603,13 +1603,20 @@ async function analyzeWallet() {
     } catch(e) { console.warn('[wallet] EVM fetch error:', e.message); }
     try {
       if (sol) {
-        const res = await fetch(`${PROXY_BASE}/api/wallet-solana?address=${sol}`);
-        if (res.ok) {
-          solData = await res.json();
-          console.log('[wallet] Solana ok txns:', solData?.transactions?.length);
+        // Validate Solana address client-side before hitting the API
+        if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(sol)) {
+          console.warn('[wallet] Invalid Solana address format:', sol);
         } else {
-          const errTxt = await res.text().catch(() => '');
-          console.warn('[wallet] Solana non-ok:', res.status, errTxt.slice(0, 300));
+          const res = await fetch(`${PROXY_BASE}/api/wallet-solana?address=${sol}`);
+          if (res.ok) {
+            solData = await res.json();
+            if (solData?.warning) console.warn('[wallet] Solana warning:', solData.warning);
+            if (solData?.error)   console.warn('[wallet] Solana error:', solData.error);
+            console.log('[wallet] Solana provider:', solData?.provider, '| txns:', solData?.transactions?.length);
+          } else {
+            const errTxt = await res.text().catch(() => '');
+            console.warn('[wallet] Solana non-ok:', res.status, errTxt.slice(0, 300));
+          }
         }
       }
     } catch(e) { console.warn('[wallet] Solana fetch error:', e.message); }
