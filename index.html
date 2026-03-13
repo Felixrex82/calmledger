@@ -535,8 +535,6 @@ body::before {
     border-radius: 16px; padding: 16px 18px;
     animation: fadeUp 0.4s ease both;
   }
-  .insight-card:nth-child(2) { animation-delay: 0.08s; }
-  .insight-card:nth-child(3) { animation-delay: 0.16s; }
   .insight-card-tag {
     font-size: 0.62rem; font-weight: 600; letter-spacing: 0.1em;
     text-transform: uppercase; color: var(--text-3); margin-bottom: 8px;
@@ -833,15 +831,6 @@ body::before {
         <div class="skeleton-line long"></div>
         <div class="skeleton-line med"></div>
       </div>
-      <div class="skeleton-card">
-        <div class="skeleton-line short"></div>
-        <div class="skeleton-line long"></div>
-        <div class="skeleton-line med"></div>
-      </div>
-      <div class="skeleton-card">
-        <div class="skeleton-line short"></div>
-        <div class="skeleton-line long"></div>
-      </div>
     </div>
 
     <!-- Actual insight cards injected by AI -->
@@ -1109,80 +1098,77 @@ window.addEventListener('load', () => {
 // ─────────────────────────────────────────────────────────────
 // AI INSIGHT CARDS — generated fresh each session
 // ─────────────────────────────────────────────────────────────
-async function generateInsightCards() {
-  const hour = new Date().getHours();
-  const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
-  const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()];
+function generateInsightCards() {
+  // No API call — picks the single most relevant card from a
+  // curated library based on real wallet data + time of day.
+  // Saves the Groq quota entirely for wallet analysis (once/day).
+  renderInsightCards([pickBestCard()]);
+}
 
-  // Build context from what we know
-  const ctx = [];
-  const lastCheckin = appData.checkins.slice(-1)[0];
-  if (lastCheckin) ctx.push(`User last checked in as: ${lastCheckin.mood} (${lastCheckin.moodLabel}), intent: ${lastCheckin.intent}`);
+function pickBestCard() {
+  const hour = new Date().getHours();
+  const isNight   = hour >= 22 || hour < 6;
+  const isMorning = hour >= 6  && hour < 12;
+
+  // Priority 1 — highest signal from real wallet data
   if (realData) {
-    ctx.push(`Wellness score: ${realData.score}`);
-    ctx.push(`Risk level: ${realData.riskLevel}`);
-    if (realData.lateNightTrades > 0) ctx.push(`Late-night trades: ${realData.lateNightTrades}`);
-    if (realData.panicPatterns > 0) ctx.push(`Panic patterns: ${realData.panicPatterns}`);
-    if (realData.topConcern) ctx.push(`Top concern: ${realData.topConcern}`);
+    if (realData.lateNightTrades > 2)
+      return { tag: 'Late Night Trading', tagColor: 'amber',
+        body: `You have made ${realData.lateNightTrades} trades between 11pm and 6am recently. Cognitive performance degrades measurably after 17 hours awake — decisions made at those hours rarely look right in the morning.`,
+        sub: 'Consider a hard rule: no new positions after 10pm.' };
+
+    if (realData.panicPatterns > 2)
+      return { tag: 'Panic Pattern', tagColor: 'terra',
+        body: `${realData.panicPatterns} rapid-fire transactions detected. Burst trading is a reliable signal of emotional decision-making, not strategy.`,
+        sub: 'Next time you feel the urge to act fast — wait 10 minutes first.' };
+
+    if (realData.riskLevel === 'high')
+      return { tag: 'Elevated Risk', tagColor: 'terra',
+        body: 'Your on-chain activity shows high stress signals. High-stress trading states are when the most costly mistakes happen — not from ignorance, but from urgency.',
+        sub: 'A one-day pause often saves more than a week of recovery.' };
+
+    if (realData.lateNightTrades === 1)
+      return { tag: 'Late Night Trade', tagColor: 'amber',
+        body: 'One late-night trade detected this period. One is a pattern waiting to form — fatigue-driven decisions compound quickly.',
+        sub: null };
+
+    if (realData.score >= 80)
+      return { tag: 'Strong Baseline', tagColor: 'sage',
+        body: 'Your trading behavior looks calm and measured right now. This is exactly the state where your best decisions get made — protect it.',
+        sub: null };
   }
-  if (appData.streak > 0) ctx.push(`Check-in streak: ${appData.streak} days`);
 
-  const prompt = `You are CalmLedger's wellness engine. Generate 3 behavioral insight cards for a crypto trader.
+  // Priority 2 — time of day
+  if (isNight)
+    return { tag: 'Late Night', tagColor: 'amber',
+      body: "The trade that feels obvious at midnight rarely looks the same at 9am. Your prefrontal cortex degrades measurably with fatigue.",
+      sub: 'Markets will still be here tomorrow.' };
 
-Context:
-- Time: ${timeOfDay} on ${dayName}
-- ${ctx.length > 0 ? ctx.join('\n- ') : 'No user data yet — new user'}
+  if (isMorning)
+    return { tag: 'Before You Trade', tagColor: 'sage',
+      body: "Set your intention before the market opens, not after it moves. Reactive trading costs more than planned trading in every studied cohort.",
+      sub: 'What is your actual thesis today — not the price action, the fundamentals?' };
 
-Write 3 cards. Each card should feel like a calm, intelligent observation — not a motivational quote, not a generic tip. Ground each one in real behavioral finance or trading psychology. Make them specific, not vague.
-
-${realData ? 'Weave the user data in where relevant.' : 'Since this is a new user, write cards that are genuinely useful for any crypto trader on a ' + timeOfDay + '.'}
-
-Vary the tone: one observational, one reflective, one practical.
-
-Respond ONLY with a JSON array, no markdown:
-[
-  {
-    "tag": "short category label, 2-3 words",
-    "tagColor": "amber|sage|terra",
-    "body": "The main insight — 1-2 sentences, serif-quality writing, specific and grounded",
-    "sub": "Optional follow-through — 1 sentence practical note, or null"
-  },
-  { ... },
-  { ... }
-]`;
-
-  try {
-    const d = await claudeFetch([{ role: 'user', content: prompt }], null, 700);
-    const raw = d.content?.map(c => c.text || '').join('') || '';
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const cards = JSON.parse(clean);
-    renderInsightCards(cards);
-  } catch {
-    // Fallback — time-aware static cards if API fails
-    renderInsightCards(getFallbackCards());
-  }
+  // Priority 3 — universal fallback
+  const universals = [
+    { tag: 'Loss Aversion', tagColor: 'terra',
+      body: 'Losses feel 2.5× more painful than equivalent gains feel good. This asymmetry causes traders to hold losers too long and cut winners too early.',
+      sub: null },
+    { tag: 'FOMO', tagColor: 'amber',
+      body: 'The trade you are rushing into is usually the one you will regret. If the thesis is real, it will still be real in 24 hours.',
+      sub: null },
+    { tag: 'Self Awareness', tagColor: 'sage',
+      body: 'Knowing your own emotional patterns is a compounding advantage. Most traders never develop it.',
+      sub: null },
+    { tag: 'Recency Bias', tagColor: 'amber',
+      body: 'Whatever happened yesterday feels more predictive than it is. The human brain overweights recent events — markets exploit this systematically.',
+      sub: null },
+  ];
+  // Rotate by day of week so it feels fresh
+  return universals[new Date().getDay() % universals.length];
 }
 
-function getFallbackCards() {
-  const hour = new Date().getHours();
-  const isNight = hour >= 22 || hour < 6;
-  const isMorning = hour >= 6 && hour < 12;
-  if (isNight) return [
-    { tag: 'Late Night', tagColor: 'amber', body: "Your prefrontal cortex degrades measurably after 17 hours awake. The trade that feels obvious at midnight rarely looks the same at 9am.", sub: "Consider setting a rule: no new positions after 10pm." },
-    { tag: 'Loss Aversion', tagColor: 'terra', body: "Losses feel 2.5× more painful than equivalent gains feel good. This asymmetry causes traders to hold losers too long and cut winners too early.", sub: null },
-    { tag: 'Rest', tagColor: 'sage', body: "Markets will be open tomorrow. Your edge comes from being sharper than other traders — sleep is part of that edge.", sub: null }
-  ];
-  if (isMorning) return [
-    { tag: 'Before You Trade', tagColor: 'sage', body: "Set your intention before the market opens, not after it moves. Reactive trading costs more than planned trading in every studied cohort.", sub: "What is your actual thesis for today — not the price action, the fundamentals?" },
-    { tag: 'Recency Bias', tagColor: 'amber', body: "Whatever happened yesterday feels more predictive than it is. The human brain overweights recent events — markets exploit this systematically.", sub: null },
-    { tag: 'Check In', tagColor: 'sage', body: "Traders who log their emotional state before trading make measurably better decisions. 30 seconds of self-awareness is a genuine edge.", sub: null }
-  ];
-  return [
-    { tag: 'FOMO', tagColor: 'amber', body: "The trade you are rushing into is usually the one you will regret. FOMO decisions happen fastest and are reviewed most painfully.", sub: "If the thesis is real, it will still be real in 24 hours." },
-    { tag: 'Behavioral Pattern', tagColor: 'terra', body: "Panic selling and euphoric buying share one thing: they both feel completely rational in the moment. That feeling is the signal to pause.", sub: null },
-    { tag: 'Self Awareness', tagColor: 'sage', body: "Knowing your own emotional patterns is a compounding advantage. Most traders never develop it. You are already ahead by being here.", sub: null }
-  ];
-}
+// getFallbackCards removed — pickBestCard() handles all cases now
 
 function renderInsightCards(cards) {
   const skeleton = document.getElementById('insightSkeleton');
@@ -1229,6 +1215,13 @@ async function claudeFetch(messages, system, maxTokens = 800) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    // Surface rate limit with a specific flag so UI can show a clear message
+    if (res.status === 429) {
+      const e = new Error(err.error || 'Groq rate limit hit — try again in a minute.');
+      e.rateLimited = true;
+      e.retryAfter = err.retryAfter || 60;
+      throw e;
+    }
     throw new Error(err.error || `HTTP ${res.status}`);
   }
   return res.json();
@@ -1719,6 +1712,24 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
     applyAnalysis(data, txns, hasReal, stats);
   } catch(e) {
     const isPreview = PROXY_BASE === null;
+    if (e.rateLimited) {
+      const mins = Math.ceil((e.retryAfter || 60) / 60);
+      showToast('⏱', `Groq rate limit — resets in ~${mins} min. Score kept from last run.`);
+      // Clear the daily lock so it retries next page load
+      localStorage.removeItem('cc_last_analysis');
+      setDisplay('analysisLoader', 'none');
+      // Restore last known score if available
+      const last = appData.scoreHistory.slice(-1)[0];
+      if (last) {
+        document.getElementById('scoreNum').textContent = last.score;
+        const color = last.score >= 70 ? 'var(--sage)' : last.score >= 45 ? 'var(--amber)' : 'var(--terra)';
+        const ring = document.getElementById('scoreRing');
+        if (ring) { ring.style.stroke = color; ring.style.strokeDashoffset = 251.2 - (last.score/100)*251.2; }
+        setText('scoreHeadline', 'Rate limited — last score shown');
+        setText('scoreBody', `Groq free tier limit hit. Will retry automatically. Score is from your last analysis.`);
+      }
+      return;
+    }
     const msg = isPreview
       ? 'Open calmledger-xi.vercel.app to enable live AI analysis.'
       : 'Analysis temporarily unavailable — please try again shortly.';

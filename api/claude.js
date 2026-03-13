@@ -72,7 +72,16 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Groq error:', data);
+      console.error('Groq error:', response.status, data);
+      // Surface rate limit errors clearly so the frontend can show a helpful message
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after') || '60';
+        return res.status(429).json({
+          error: `Groq rate limit hit. Resets in ~${retryAfter}s. The daily analysis runs once per day to avoid this.`,
+          retryAfter: parseInt(retryAfter),
+          rateLimited: true,
+        });
+      }
       return res.status(response.status).json({ error: data.error?.message || 'Groq API error' });
     }
 
