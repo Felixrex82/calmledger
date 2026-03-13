@@ -71,8 +71,12 @@ export default async function handler(req, res) {
             type:         'tx',
           })));
           if (!results.chainsScanned.includes(cfg.name)) results.chainsScanned.push(cfg.name);
+        } else if (data.message === 'No transactions found' || data.message === 'NOTOK' && data.result === 'Max rate limit reached') {
+          // Rate limit is a real error — surface it
+          results.errors.push(`${cfg.name} tx: rate limit hit`);
         } else {
-          results.errors.push(`${cfg.name} tx: status=${data.status} msg=${data.message}`);
+          // NOTOK with no results = wallet has no activity on this chain — not an error
+          console.log(`[${cfg.name}] tx: no results (${data.message})`);
         }
       } catch (err) {
         results.errors.push(`${cfg.name} tx fetch failed: ${err.message}`);
@@ -104,8 +108,11 @@ export default async function handler(req, res) {
             type:         'token_transfer',
             isTrade:      true,
           })));
+        } else if (data.message && data.message.includes('rate limit')) {
+          results.errors.push(`${cfg.name} token: rate limit hit`);
         } else {
-          results.errors.push(`${cfg.name} token: status=${data.status} msg=${data.message}`);
+          // No token transfers on this chain — not an error
+          console.log(`[${cfg.name}] token: no results (${data.message})`);
         }
       } catch (err) {
         results.errors.push(`${cfg.name} token fetch failed: ${err.message}`);
