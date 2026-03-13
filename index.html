@@ -282,6 +282,31 @@ body::before {
   cursor: pointer; transition: all 0.15s; color: var(--text-2);
 }
 .chain-pill.active { background: var(--sage-dim); border-color: rgba(122,158,126,0.4); color: var(--sage-lt); }
+.price-alert-card {
+  background: var(--surface-2, #1e2128);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+.price-alert-card.drop { border-left: 3px solid var(--terra); }
+.price-alert-card.pump { border-left: 3px solid var(--sage); }
+.price-alert-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.price-alert-coin { font-weight: 600; font-size: 0.88rem; color: var(--text-1); }
+.price-alert-change { font-size: 0.82rem; font-weight: 600; }
+.price-alert-change.negative { color: var(--terra); }
+.price-alert-change.positive { color: var(--sage-lt); }
+.price-alert-price { font-size: 0.72rem; color: var(--text-3); margin-top: 3px; }
+.price-alert-label { font-size: 0.65rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.period-tab {
+  padding: 5px 12px; border-radius: 99px; font-size: 0.72rem; font-weight: 500;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; color: var(--text-2); transition: all 0.15s;
+}
+.period-tab.active { background: var(--sage-dim); border-color: rgba(122,158,126,0.4); color: var(--sage-lt); }
 .addr-input {
   width: 100%; background: var(--surface); border: 1px solid var(--border);
   border-radius: 12px; padding: 10px 14px; font-family: var(--sans);
@@ -553,6 +578,13 @@ body::before {
 </head>
 <body>
 
+<!-- ── PREVIEW MODE BANNER — hidden on Vercel, shown on previews ── -->
+<div id="previewBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#1a2a1a;border-bottom:1px solid #4a7a4e;padding:8px 16px;font-family:system-ui,sans-serif;font-size:12px;color:#a8c9ac;text-align:center;">
+  ⚡ Preview mode — AI analysis, wallet data &amp; price alerts require the live app at
+  <a href="https://calmledger-xi.vercel.app" target="_blank" style="color:#7a9e7e;text-decoration:underline;">calmledger-xi.vercel.app</a>
+  <span onclick="document.getElementById('previewBanner').style.display='none'" style="cursor:pointer;margin-left:12px;opacity:0.5;font-size:14px;">✕</span>
+</div>
+
 <!-- ── ONBOARDING WALL ──────────────────────────────────── -->
 <div class="onboarding" id="onboarding">
   <div class="ob-hero">
@@ -780,6 +812,9 @@ body::before {
     <!-- Alerts (shown after analysis) -->
     <div id="alertsWrap" style="padding: 0 16px;"></div>
 
+    <!-- Price Movement Alerts -->
+    <div id="priceAlertsWrap" style="padding: 0 16px; margin-top: 4px;"></div>
+
     <!-- Analysis card (shown after analysis) -->
     <div class="card" id="analysisCard" style="display:none;">
       <div class="card-label">Wallet Analysis</div>
@@ -863,7 +898,12 @@ body::before {
     </div>
 
     <div class="card">
-      <div class="card-label">This Month</div>
+      <!-- Period tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;">
+        <button class="period-tab active" id="ptab-today" onclick="switchPeriod('today')">Today</button>
+        <button class="period-tab" id="ptab-week" onclick="switchPeriod('week')">This Week</button>
+        <button class="period-tab" id="ptab-month" onclick="switchPeriod('month')">This Month</button>
+      </div>
       <div class="analysis-row">
         <span class="analysis-label">Late-night trades</span>
         <span class="analysis-val" id="pLateNight" style="color:var(--amber);">—</span>
@@ -896,6 +936,8 @@ body::before {
         <span class="analysis-label">Average wellness score</span>
         <span class="analysis-val" id="pAvgScore">—</span>
       </div>
+      <!-- Transaction list for selected period -->
+      <div id="pTxList" style="margin-top:14px;"></div>
     </div>
 
     <!-- AI behavioral insight on progress page -->
@@ -983,9 +1025,18 @@ const setDisplay = (id, val) => { const e = el(id); if (e) e.style.display = val
 const setText = (id, val) => { const e = el(id); if (e) e.textContent = val; };
 
 // ─────────────────────────────────────────────────────────────
-// PROXY — update to your Vercel URL after deployment
+// PROXY — auto-detects environment:
+//   • On Vercel (calmledger-xi.vercel.app) → uses relative /api paths
+//   • On localhost → uses relative /api paths (run `vercel dev`)
+//   • On any preview / iframe (e.g. claudeusercontent.com) → null, all
+//     API calls are skipped gracefully so the UI still loads
 // ─────────────────────────────────────────────────────────────
-const PROXY_BASE = 'https://calmledger-xi.vercel.app';
+const VERCEL_URL = 'https://calmledger-xi.vercel.app';
+const _host = window.location.hostname;
+const _isVercel   = _host === 'calmledger-xi.vercel.app' || _host.endsWith('.vercel.app');
+const _isLocalhost = _host === 'localhost' || _host === '127.0.0.1';
+// PROXY_BASE: empty string = relative paths on same origin; null = skip all API calls
+const PROXY_BASE = (_isVercel || _isLocalhost) ? '' : null;
 
 // ─────────────────────────────────────────────────────────────
 // SUPABASE — replace with your project credentials
@@ -1038,6 +1089,7 @@ function persistWallets() {
 
 let selectedChains = ['eth','bsc'];
 let realData = null;
+let allTxCache = [];
 let selectedMoodEmoji = '';
 
 // ─────────────────────────────────────────────────────────────
@@ -1160,6 +1212,7 @@ function renderInsightCards(cards) {
 // The Anthropic API key never touches the browser
 // ─────────────────────────────────────────────────────────────
 async function claudeFetch(messages, system, maxTokens = 800) {
+  if (PROXY_BASE === null) throw new Error('AI proxy not available in preview — open calmledger-xi.vercel.app');
   const body = {
     model: 'claude-sonnet-4-5',
     max_tokens: maxTokens,
@@ -1180,7 +1233,136 @@ async function claudeFetch(messages, system, maxTokens = 800) {
   return res.json();
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// PRICE MOVEMENT ALERTS
+// Uses CoinGecko free API — no key required
+// Checks top coins + any coins in user's wallet
+// Notifies on moves > threshold in 24h
+// ─────────────────────────────────────────────────────────────
+
+const PRICE_ALERT_THRESHOLD = 3; // % change to trigger alert
+const PRICE_CHECK_INTERVAL  = 60 * 60 * 1000; // check every 1 hour
+
+// Default coins to always track
+const DEFAULT_COINS = [
+  { id: 'bitcoin',  symbol: 'BTC', name: 'Bitcoin' },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum' },
+  { id: 'solana',   symbol: 'SOL', name: 'Solana' },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB' },
+];
+
+let priceCache = {}; // { coinId: { price, change24h, change12h, timestamp } }
+
+async function fetchPrices(coinIds) {
+  if (PROXY_BASE === null) return null; // not on deployed origin — skip silently
+  const ids = coinIds.join(',');
+  const url = `${PROXY_BASE}/api/prices?ids=${ids}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Price proxy ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.warn('Price fetch failed:', e.message);
+    return null;
+  }
+}
+
+async function checkPriceAlerts() {
+  const data = await fetchPrices(DEFAULT_COINS.map(c => c.id));
+  if (!data) return;
+
+  const alerts = [];
+  const now = Date.now();
+
+  DEFAULT_COINS.forEach(coin => {
+    const d = data[coin.id];
+    if (!d) return;
+
+    const price  = d.usd;
+    const change = d.usd_24h_change;
+
+    // Store in cache
+    priceCache[coin.id] = { price, change24h: change, timestamp: now };
+
+    // Only alert on significant moves
+    if (Math.abs(change) >= PRICE_ALERT_THRESHOLD) {
+      alerts.push({ ...coin, price, change });
+    }
+  });
+
+  // Render alerts on home page
+  renderPriceAlerts(alerts, data);
+
+  // Push notification for big moves (>5%) if permission granted
+  alerts.forEach(alert => {
+    if (Math.abs(alert.change) >= 5 && Notification.permission === 'granted') {
+      const dir = alert.change < 0 ? 'dropped' : 'jumped';
+      const pct = Math.abs(alert.change).toFixed(1);
+      const key = `cc_pricealert_${alert.id}_${new Date().toDateString()}`;
+      // Only notify once per coin per day
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        new Notification(`${alert.symbol} ${dir} ${pct}% today`, {
+          body: `${alert.name} is now $${alert.price.toLocaleString('en-US', {maximumFractionDigits: 2})}. Check your wellness score.`,
+          icon: '/icon-192.png',
+          tag: 'price-' + alert.id,
+        });
+      }
+    }
+  });
+}
+
+function renderPriceAlerts(significantAlerts, allData) {
+  const wrap = document.getElementById('priceAlertsWrap');
+  if (!wrap) return;
+
+  // Always show a mini ticker of all coins, highlight significant moves
+  const rows = DEFAULT_COINS.map(coin => {
+    const d = allData[coin.id];
+    if (!d) return '';
+    const change = d.usd_24h_change;
+    const isNeg = change < 0;
+    const absPct = Math.abs(change).toFixed(1);
+    const isSignificant = Math.abs(change) >= PRICE_ALERT_THRESHOLD;
+    const cls = isSignificant ? (isNeg ? 'drop' : 'pump') : '';
+    return `<div class="price-alert-card ${cls}">
+      <div class="price-alert-row">
+        <div>
+          <div class="price-alert-coin">${coin.symbol} <span style="font-weight:400;color:var(--text-3);font-size:0.78rem;">${coin.name}</span></div>
+          <div class="price-alert-price">$${d.usd.toLocaleString('en-US', {maximumFractionDigits: 2})}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="price-alert-change ${isNeg ? 'negative' : 'positive'}">
+            ${isNeg ? '▼' : '▲'} ${absPct}%
+          </div>
+          <div class="price-alert-price">24h</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  if (!rows) return;
+
+  wrap.innerHTML = `
+    <div style="margin-bottom:4px;" class="price-alert-label">Market · 24h</div>
+    ${rows}
+  `;
+}
+
+async function initPriceAlerts() {
+  // Run immediately on load
+  await checkPriceAlerts();
+  // Then check every hour
+  setInterval(checkPriceAlerts, PRICE_CHECK_INTERVAL);
+}
+
 function bootApp() {
+  // Show preview banner when not on the deployed Vercel app
+  if (PROXY_BASE === null) {
+    const pb = document.getElementById('previewBanner');
+    if (pb) pb.style.display = 'block';
+  }
   updateWalletUI();
   restoreJournal();
   restoreChat();
@@ -1190,6 +1372,9 @@ function bootApp() {
   checkLateNightAlert();
   renderWeekBars();
   updateProgressStats();
+
+  // Start price monitoring
+  initPriceAlerts();
 
   // Analyze once per day — avoids burning API credits on every reload
   const lastAnalysis = localStorage.getItem('cc_last_analysis');
@@ -1211,14 +1396,16 @@ function bootApp() {
   // Generate AI insight cards — fresh every session
   generateInsightCards();
 
-  // Listen for notification clicks from service worker
-  navigator.serviceWorker?.addEventListener('message', e => {
-    if (e.data?.type === 'NOTIFICATION_CLICK') {
-      if (e.data.action === 'checkin') openCheckin();
-      if (e.data.action === 'journal') showPage('journal');
-      if (e.data.action === 'progress') showPage('progress');
-    }
-  });
+  // Listen for notification clicks from service worker (deployed only)
+  if (PROXY_BASE !== null) {
+    navigator.serviceWorker?.addEventListener('message', e => {
+      if (e.data?.type === 'NOTIFICATION_CLICK') {
+        if (e.data.action === 'checkin') openCheckin();
+        if (e.data.action === 'journal') showPage('journal');
+        if (e.data.action === 'progress') showPage('progress');
+      }
+    });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1399,10 +1586,10 @@ async function analyzeWallet() {
 
   // ── Fetch blockchain data only if proxy is deployed ──
   let evmData = null, solData = null;
-  if (PROXY_BASE && PROXY_BASE.startsWith('http')) {
+  if (PROXY_BASE !== null) {
     try {
       if (evm) {
-        const chainStr = (chains || ['eth','bsc']).join(',');
+        const chainStr = (chains && chains.length ? chains : ['eth','bsc']).join(',');
         const res = await fetch(`${PROXY_BASE}/api/wallet?address=${evm}&chains=${chainStr}&type=both`);
         if (res.ok) evmData = await res.json();
       }
@@ -1511,8 +1698,13 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
     realData = data;
     applyAnalysis(data, txns, hasReal, stats);
   } catch(e) {
-    console.warn('Analysis error:', e.message);
-    applyAnalysis({ score:72, headline:'Deploy to analyze', summary:'Deploy to Vercel to enable live wallet analysis.', insight:'Your score builds from real on-chain data once the app is deployed.', topConcern:null, riskLevel:'low', lateNightTrades:0, panicPatterns:0, wellnessImpact:0 }, [], false, null);
+    const isPreview = PROXY_BASE === null;
+    const msg = isPreview
+      ? 'Open calmledger-xi.vercel.app to enable live AI analysis.'
+      : 'Analysis temporarily unavailable — please try again shortly.';
+    const headline = isPreview ? 'Preview mode' : 'Analysis paused';
+    if (!isPreview) console.warn('Analysis error:', e.message);
+    applyAnalysis({ score:72, headline, summary: msg, insight: msg, topConcern:null, riskLevel:'low', lateNightTrades:0, panicPatterns:0, wellnessImpact:0 }, [], false, null);
   }
 }
 
@@ -1592,6 +1784,9 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null) {
     txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
   }
 
+  // Cache all txns for period filtering on progress page
+  allTxCache = txns || [];
+
   // Save to history
   addScoreToHistory(score);
   renderWeekBars();
@@ -1649,22 +1844,87 @@ function renderWeekBars() {
   if (avg && valid.length) avg.textContent = `Avg ${Math.round(valid.reduce((a,b)=>a+b.score,0)/valid.length)}`;
 }
 
+let currentPeriod = 'month'; // today | week | month
+
+function switchPeriod(period) {
+  currentPeriod = period;
+  // Update tab styles
+  ['today','week','month'].forEach(p => {
+    const tab = document.getElementById('ptab-' + p);
+    if (tab) tab.classList.toggle('active', p === period);
+  });
+  updateProgressStats();
+}
+
+function getPeriodMs(period) {
+  if (period === 'today') return 86400000;
+  if (period === 'week')  return 7 * 86400000;
+  return 30 * 86400000; // month
+}
+
 function updateProgressStats() {
   const set = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-  const checkinsThisMonth = appData.checkins.filter(c => Date.now() - new Date(c.ts).getTime() < 30*86400000).length;
-  const journalThisMonth = appData.journalItems.filter(j => Date.now() - new Date(j.ts).getTime() < 30*86400000).length;
-  const avg = appData.scoreHistory.length ? Math.round(appData.scoreHistory.slice(-30).reduce((a,b)=>a+b.score,0)/appData.scoreHistory.slice(-30).length) : null;
+  const periodMs = getPeriodMs(currentPeriod);
+  const cutoff = Date.now() - periodMs;
 
-  // On-chain behavioral data
-  set('pLateNight',  realData?.lateNightTrades ?? '—');
-  set('pPanic',      realData?.panicPatterns   ?? '—');
-  set('pFailed',     realData?.failedTxns      ?? '—');
-  set('pTotal',      realData?.totalTrades     ?? '—');
-  set('pActiveDays', realData?.activeDays      ?? '—');
-  // Self-reported data
-  set('pCheckins', checkinsThisMonth || '—');
-  set('pJournal',  journalThisMonth  || '—');
+  // Filter txns for this period
+  const periodTxns = allTxCache.filter(tx => {
+    const ts = (tx.timeStamp || tx.timestamp || 0) * 1000;
+    return ts > cutoff;
+  });
+
+  // On-chain stats for selected period
+  const lateNight = periodTxns.filter(tx => {
+    const h = new Date((tx.timeStamp||tx.timestamp||0)*1000).getHours();
+    return h >= 23 || h < 6;
+  }).length;
+  const failed = periodTxns.filter(tx => tx.isError).length;
+  let panic = 0;
+  const sorted = [...periodTxns].sort((a,b)=>(a.timeStamp||0)-(b.timeStamp||0));
+  for (let i=1;i<sorted.length;i++) {
+    if ((sorted[i].timeStamp||0)-(sorted[i-1].timeStamp||0)<600) panic++;
+  }
+  const uniqueDays = new Set(periodTxns.map(tx=>new Date((tx.timeStamp||0)*1000).toDateString()));
+
+  set('pLateNight', lateNight || realData?.lateNightTrades || '—');
+  set('pPanic',     panic     || realData?.panicPatterns   || '—');
+  set('pFailed',    failed    || realData?.failedTxns      || '—');
+  set('pTotal',     periodTxns.length || realData?.totalTrades || '—');
+  set('pActiveDays', uniqueDays.size || realData?.activeDays || '—');
+
+  // Self-reported — also filtered by period
+  const checkins = appData.checkins.filter(c => Date.now() - new Date(c.ts).getTime() < periodMs).length;
+  const journal  = appData.journalItems.filter(j => Date.now() - new Date(j.ts).getTime() < periodMs).length;
+  const scores   = appData.scoreHistory.filter(s => Date.now() - new Date(s.date).getTime() < periodMs);
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b.score,0)/scores.length) : null;
+
+  set('pCheckins', checkins || '—');
+  set('pJournal',  journal  || '—');
   set('pAvgScore', avg ?? '—');
+
+  // Transaction list for this period
+  const txList = document.getElementById('pTxList');
+  if (txList) {
+    if (periodTxns.length === 0) {
+      txList.innerHTML = '<p style="font-size:0.78rem;color:var(--text-3);margin-top:4px;">No transactions in this period.</p>';
+    } else {
+      txList.innerHTML = '<div class="card-label" style="margin-bottom:8px;">Transactions</div>' +
+        periodTxns.slice(0, 15).map(tx => {
+          const ts = (tx.timeStamp || tx.timestamp || 0) * 1000;
+          const time = ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+          const h = new Date(ts).getHours();
+          const isLate = h >= 23 || h < 6;
+          return `<div class="tx-item">
+            <div class="tx-icon">\${tx.type==='swap'?'⇄':'↑'}</div>
+            <div class="tx-main">
+              <div class="tx-title">\${tx.description||tx.type||'Transaction'}\${isLate?'<span class="tx-badge late">late</span>':''}\${tx.isError?'<span class="tx-badge panic">failed</span>':''}</div>
+              <div class="tx-sub">\${tx.chainName||tx.chain||'Solana'}</div>
+            </div>
+            <div class="tx-time">\${time}</div>
+          </div>`;
+        }).join('');
+    }
+  }
 
   // Show latest AI insight on progress page
   if (realData?.insight) {
@@ -1983,7 +2243,7 @@ async function askNotifPermission() {
 }
 
 function scheduleNotifications() {
-  if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+  if (!('serviceWorker' in navigator) || Notification.permission !== 'granted' || PROXY_BASE === null) return;
   navigator.serviceWorker.ready.then(sw => {
     sw.active?.postMessage({
       type: 'SCHEDULE_NOTIFICATIONS',
@@ -2023,9 +2283,10 @@ function showToast(icon, msg) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SERVICE WORKER
+// SERVICE WORKER — only register on the deployed Vercel origin
+// Skips silently on previews/iframes to avoid 404 errors
 // ─────────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && PROXY_BASE !== null) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(() => console.log('CalmLedger SW ready'))
