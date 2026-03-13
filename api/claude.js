@@ -44,6 +44,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'messages array required' });
     }
 
+    console.log('[api/claude] request — messages:', messages.length, 'max_tokens:', max_tokens);
+
     // ── Build Groq messages array ──
     // Groq uses OpenAI format — system prompt goes as first message
     const groqMessages = [];
@@ -74,6 +76,7 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: data.error?.message || 'Groq API error' });
     }
 
+    console.log('[api/claude] Groq response ok — model:', data.model, 'tokens used:', data.usage?.total_tokens);
     // ── Translate Groq response → Anthropic format ──
     // Frontend expects: data.content[0].text
     // Groq returns:     data.choices[0].message.content

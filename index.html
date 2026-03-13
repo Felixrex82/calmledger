@@ -1591,15 +1591,27 @@ async function analyzeWallet() {
       if (evm) {
         const chainStr = (chains && chains.length ? chains : ['eth','bsc']).join(',');
         const res = await fetch(`${PROXY_BASE}/api/wallet?address=${evm}&chains=${chainStr}&type=both`);
-        if (res.ok) evmData = await res.json();
+        if (res.ok) {
+          evmData = await res.json();
+          console.log('[wallet] EVM ok txns:', evmData?.transactions?.length, 'tokens:', evmData?.tokenTransfers?.length, 'errors:', evmData?.errors);
+        } else {
+          const errTxt = await res.text().catch(() => '');
+          console.warn('[wallet] EVM non-ok:', res.status, errTxt.slice(0, 300));
+        }
       }
-    } catch(e) { console.warn('EVM fetch:', e.message); }
+    } catch(e) { console.warn('[wallet] EVM fetch error:', e.message); }
     try {
       if (sol) {
         const res = await fetch(`${PROXY_BASE}/api/wallet-solana?address=${sol}`);
-        if (res.ok) solData = await res.json();
+        if (res.ok) {
+          solData = await res.json();
+          console.log('[wallet] Solana ok txns:', solData?.transactions?.length);
+        } else {
+          const errTxt = await res.text().catch(() => '');
+          console.warn('[wallet] Solana non-ok:', res.status, errTxt.slice(0, 300));
+        }
       }
-    } catch(e) { console.warn('Solana fetch:', e.message); }
+    } catch(e) { console.warn('[wallet] Solana fetch error:', e.message); }
   }
 
   const txns = [

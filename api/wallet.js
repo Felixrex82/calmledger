@@ -6,11 +6,11 @@
  */
 
 const CHAIN_CONFIGS = {
-  eth:     { name: 'Ethereum', api: 'https://api.etherscan.io/v2/api', chainid: 1,     key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH'  },
-  bsc:     { name: 'BNB Chain', api: 'https://api.etherscan.io/v2/api', chainid: 56,   key: process.env.ETHERSCAN_API_KEY, symbol: 'BNB'  },
-  polygon: { name: 'Polygon',  api: 'https://api.etherscan.io/v2/api', chainid: 137,   key: process.env.ETHERSCAN_API_KEY, symbol: 'MATIC'},
-  arb:     { name: 'Arbitrum', api: 'https://api.etherscan.io/v2/api', chainid: 42161, key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH'  },
-  base:    { name: 'Base',     api: 'https://api.etherscan.io/v2/api', chainid: 8453,  key: process.env.ETHERSCAN_API_KEY, symbol: 'ETH'  },
+  eth:     { name: 'Ethereum', api: 'https://api.etherscan.io/v2/api', chainid: 1,     symbol: 'ETH'  },
+  bsc:     { name: 'BNB Chain', api: 'https://api.etherscan.io/v2/api', chainid: 56,   symbol: 'BNB'  },
+  polygon: { name: 'Polygon',  api: 'https://api.etherscan.io/v2/api', chainid: 137,   symbol: 'MATIC'},
+  arb:     { name: 'Arbitrum', api: 'https://api.etherscan.io/v2/api', chainid: 42161, symbol: 'ETH'  },
+  base:    { name: 'Base',     api: 'https://api.etherscan.io/v2/api', chainid: 8453,  symbol: 'ETH'  },
 };
 
 export default async function handler(req, res) {
@@ -20,6 +20,13 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ── Guard: API key required ──
+  const etherscanKey = process.env.ETHERSCAN_API_KEY;
+  if (!etherscanKey) {
+    console.error('[api/wallet] ETHERSCAN_API_KEY not set');
+    return res.status(500).json({ error: 'ETHERSCAN_API_KEY not configured on server' });
+  }
 
   const { address, chains = 'eth', type = 'both' } = req.query;
 
@@ -35,7 +42,7 @@ export default async function handler(req, res) {
     const cfg = CHAIN_CONFIGS[chainKey];
     if (!cfg) { results.errors.push(`Unknown chain: ${chainKey}`); return; }
 
-    const apiKey = cfg.key || 'YourApiKeyToken';
+    const apiKey = etherscanKey; // validated above — never a placeholder
     const baseParams = `&chainid=${cfg.chainid}&address=${address}&page=1&sort=desc&apikey=${apiKey}`;
 
     // ── Regular transactions ──
