@@ -772,6 +772,14 @@ body::before {
       </div>
     </div>
 
+    <!-- Share wellness card buttons — shown only after analysis -->
+    <div id="shareWrap" style="display:none; padding: 0 16px 4px; display:none;">
+      <div style="display:flex; gap:10px;">
+        <button onclick="downloadWellnessCard()" style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 0; font-size:0.75rem; font-weight:600; color:var(--text-2); cursor:pointer; letter-spacing:0.04em;">⬇ Download Card</button>
+        <button onclick="shareToTwitter()" style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 0; font-size:0.75rem; font-weight:600; color:var(--text-2); cursor:pointer; letter-spacing:0.04em;">𝕏 Share Score</button>
+      </div>
+    </div>
+
     <!-- Notification banner -->
     <div class="notif-banner" id="notifBanner" style="display:none;">
       <span>🔔</span>
@@ -1616,17 +1624,30 @@ async function analyzeWallet() {
     } catch(e) { console.warn('[wallet] Solana fetch error:', e.message); }
   }
 
-  const txns = [
-    ...(evmData?.transactions || []),
+  // Normalise timestamps — Solana uses 'timestamp', EVM uses 'timeStamp'
+  const normTs = tx => parseInt(tx.timeStamp || tx.timestamp || 0);
+
+  // Full lists — used for allTxCache (progress page period filtering needs ALL txns)
+  const evmAllTxns = [
+    ...(evmData?.transactions   || []),
     ...(evmData?.tokenTransfers || []),
-    ...(solData?.transactions || []),
-  ].sort((a,b) => (b.timeStamp||b.timestamp||0) - (a.timeStamp||a.timestamp||0)).slice(0, 30);
+  ].sort((a,b) => normTs(b) - normTs(a));
+  const solAllTxns = (solData?.transactions || [])
+    .sort((a,b) => normTs(b) - normTs(a));
+  const allTxns = [...evmAllTxns, ...solAllTxns]
+    .sort((a,b) => normTs(b) - normTs(a));
+
+  // Sliced lists — used for AI prompt only (keep 15 per chain so neither dominates)
+  const txns = [...evmAllTxns.slice(0, 15), ...solAllTxns.slice(0, 15)]
+    .sort((a,b) => normTs(b) - normTs(a));
+
   const stats = mergeStats(evmData?.stats, solData?.stats);
+  console.log('[wallet] merged — evm:', evmAllTxns.length, 'sol:', solAllTxns.length, 'total cache:', allTxns.length, 'ai prompt:', txns.length);
 
   setDisplay('analysisLoader', 'none');
 
   // ── Always run Claude AI analysis ──
-  await runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol);
+  await runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol, allTxns);
 }
 
 function mergeStats(evm, sol) {
@@ -1646,7 +1667,7 @@ function mergeStats(evm, sol) {
   };
 }
 
-async function runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr) {
+async function runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr, allTxns) {
   const memCtx = buildMemoryContext();
   const prompt = hasReal
     ? `Analyze this crypto trader's on-chain activity and give a wellness assessment.
@@ -1770,6 +1791,7 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null) {
   // Stats
   if (data.lateNightTrades !== undefined || data.panicPatterns !== undefined) {
     const _sr = document.getElementById('statRow'); if (_sr) _sr.style.display = 'grid';
+    const _sw = document.getElementById('shareWrap'); if (_sw) _sw.style.display = 'block';
     document.getElementById('statLateNight').textContent = data.lateNightTrades ?? '—';
     document.getElementById('statPanic').textContent = data.panicPatterns ?? '—';
   }
@@ -1817,8 +1839,9 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null) {
     txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
   }
 
-  // Cache all txns for period filtering on progress page
-  allTxCache = txns || [];
+  // Cache ALL txns (full list) for progress page period filtering
+  // txns is sliced to 30 for the AI prompt — allTxns has everything
+  allTxCache = allTxns || txns || [];
 
   // Save to history
   addScoreToHistory(score);
@@ -1913,11 +1936,12 @@ function updateProgressStats() {
   }).length;
   const failed = periodTxns.filter(tx => tx.isError).length;
   let panic = 0;
-  const sorted = [...periodTxns].sort((a,b)=>(a.timeStamp||0)-(b.timeStamp||0));
+  const normTsLocal = tx => parseInt(tx.timeStamp || tx.timestamp || 0);
+  const sorted = [...periodTxns].sort((a,b)=>normTsLocal(a)-normTsLocal(b));
   for (let i=1;i<sorted.length;i++) {
-    if ((sorted[i].timeStamp||0)-(sorted[i-1].timeStamp||0)<600) panic++;
+    if (normTsLocal(sorted[i])-normTsLocal(sorted[i-1])<600) panic++;
   }
-  const uniqueDays = new Set(periodTxns.map(tx=>new Date((tx.timeStamp||0)*1000).toDateString()));
+  const uniqueDays = new Set(periodTxns.map(tx=>new Date((parseInt(tx.timeStamp||tx.timestamp||0))*1000).toDateString()));
 
   // Use period-filtered counts only — never fall back to all-time realData
   // (that made Today/Week/Month all show the same numbers)
@@ -2337,6 +2361,182 @@ if ('serviceWorker' in navigator && PROXY_BASE !== null) {
       .catch(e => console.log('SW:', e));
   });
 }
+
+// ── Wellness Card Generator ─────────────────────────────────────────────────
+function buildWellnessCardCanvas() {
+  const W = 1200, H = 630;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0f1114';
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 60) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Left accent bar
+  ctx.fillStyle = '#7a9e7e';
+  ctx.fillRect(0, 0, 8, H);
+
+  // Top-right glow
+  const glow = ctx.createRadialGradient(W-100, 100, 0, W-100, 100, 400);
+  glow.addColorStop(0, 'rgba(122,158,126,0.12)');
+  glow.addColorStop(1, 'rgba(122,158,126,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Get live data
+  const score     = parseInt(document.getElementById('scoreNum')?.textContent) || 0;
+  const headline  = document.getElementById('scoreHeadline')?.textContent || '';
+  const body      = document.getElementById('scoreBody')?.textContent || '';
+  const lateNight = document.getElementById('statLateNight')?.textContent || '—';
+  const panic     = document.getElementById('statPanic')?.textContent || '—';
+  const addrLabel = document.getElementById('walletBtnLabel')?.textContent || '';
+
+  // Score colour
+  const scoreCol = score >= 70 ? '#7a9e7e' : score >= 45 ? '#c8963e' : '#b85c3a';
+
+  // ── Score ring (left side) ──
+  const cx = 220, cy = 300, r = 130, lw = 16;
+  // Track
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.strokeStyle = '#1d2226'; ctx.lineWidth = lw; ctx.stroke();
+  // Fill
+  const pct = score / 100;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + pct * Math.PI*2);
+  ctx.strokeStyle = scoreCol; ctx.lineWidth = lw;
+  ctx.lineCap = 'round'; ctx.stroke();
+  // Score number
+  ctx.fillStyle = scoreCol;
+  ctx.font = 'italic bold 110px Georgia, serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(score), cx, cy - 12);
+  // Score label
+  ctx.fillStyle = '#6a6460';
+  ctx.font = '600 18px Inter, sans-serif';
+  ctx.letterSpacing = '3px';
+  ctx.fillText('WELLNESS SCORE', cx, cy + 72);
+
+  // ── Right side content ──
+  const rx = 420;
+
+  // Logo
+  ctx.fillStyle = '#a8c9ac';
+  ctx.font = 'italic 28px Georgia, serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('CalmLedger', rx, 60);
+
+  // Headline
+  ctx.fillStyle = '#e6e2da';
+  ctx.font = 'italic 52px Georgia, serif';
+  ctx.textBaseline = 'top';
+  // Word-wrap headline
+  const wrapText = (text, x, y, maxW, lineH, fnt) => {
+    ctx.font = fnt;
+    const words = text.split(' ');
+    let line = '', ly = y;
+    for (let w of words) {
+      const test = line + w + ' ';
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line.trim(), x, ly);
+        line = w + ' '; ly += lineH;
+      } else { line = test; }
+    }
+    if (line) ctx.fillText(line.trim(), x, ly);
+    return ly + lineH;
+  };
+  let nextY = wrapText(headline, rx, 120, 710, 62, 'italic 52px Georgia, serif');
+
+  // Body text
+  ctx.fillStyle = '#a09a90';
+  nextY = wrapText(body, rx, nextY + 8, 710, 36, '400 26px Inter, sans-serif') + 20;
+
+  // Stat pills
+  const drawPill = (label, val, x, y, col) => {
+    ctx.fillStyle = '#161a1e';
+    roundRect(ctx, x, y, 280, 90, 16);
+    ctx.fill();
+    ctx.strokeStyle = col + '55';
+    ctx.lineWidth = 1;
+    roundRect(ctx, x, y, 280, 90, 16);
+    ctx.stroke();
+    ctx.fillStyle = col;
+    ctx.font = 'italic bold 36px Georgia, serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(val, x + 18, y + 14);
+    ctx.fillStyle = '#6a6460';
+    ctx.font = '500 16px Inter, sans-serif';
+    ctx.fillText(label, x + 18, y + 58);
+  };
+
+  const pillY = Math.max(nextY, 380);
+  drawPill('Late-night trades', lateNight, rx, pillY, '#c8963e');
+  drawPill('Panic patterns', panic, rx + 300, pillY, '#b85c3a');
+
+  // Bottom bar
+  ctx.fillStyle = '#161a1e';
+  ctx.fillRect(0, H - 72, W, 72);
+  ctx.fillStyle = '#2a2f34';
+  ctx.fillRect(0, H - 73, W, 1);
+
+  ctx.fillStyle = '#6a6460';
+  ctx.font = '400 20px Inter, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('calmledger-xi.vercel.app', 28, H - 36);
+
+  ctx.fillStyle = '#2a2f34';
+  const dateStr = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric'});
+  ctx.fillText(dateStr, rx, H - 36);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#6a6460';
+  ctx.fillText('Behavioral Wellness for Crypto Traders', W - 28, H - 36);
+
+  return canvas;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function downloadWellnessCard() {
+  const score = parseInt(document.getElementById('scoreNum')?.textContent);
+  if (!score || isNaN(score)) { showToast('ℹ', 'Run a wallet analysis first to generate your card.'); return; }
+  const canvas = buildWellnessCardCanvas();
+  const a = document.createElement('a');
+  a.download = `calmledger-score-${score}.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  showToast('✓', 'Wellness card downloaded!');
+}
+
+function shareToTwitter() {
+  const score = parseInt(document.getElementById('scoreNum')?.textContent);
+  if (!score || isNaN(score)) { showToast('ℹ', 'Run a wallet analysis first.'); return; }
+  const headline = document.getElementById('scoreHeadline')?.textContent || '';
+  const scoreCol = score >= 70 ? '🟢' : score >= 45 ? '🟡' : '🔴';
+  const text = `${scoreCol} My CalmLedger Wellness Score: ${score}/100\n\n${headline}\n\nTrack your crypto trading behavior, not just your portfolio.\n\ncalmledger-xi.vercel.app`;
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank', 'width=600,height=400');
+}
+// ── End Wellness Card Generator ─────────────────────────────────────────────
+
 </script>
 </body>
 </html>

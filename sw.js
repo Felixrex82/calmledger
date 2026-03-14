@@ -3,7 +3,7 @@
  * Handles: offline caching, push notifications, notification scheduling
  */
 
-const CACHE_NAME = 'calmledger-v7';
+const CACHE_NAME = 'calmledger-v8';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {

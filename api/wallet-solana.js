@@ -141,19 +141,26 @@ async function fetchHelius(address, apiKey) {
   console.log('[solana/helius] enhanced txns:', txJson.length);
   return {
     ok: true,
-    transactions: txJson.map(tx => ({
-      hash:        tx.signature || '',
-      timeStamp:   tx.timestamp || 0,
-      from:        tx.feePayer || address,
-      to:          tx.nativeTransfers?.[0]?.toUserAccount || '',
-      value:       String(tx.nativeTransfers?.[0]?.amount || 0),
-      isError:     !!tx.transactionError,
-      type:        tx.type || 'TRANSACTION',
-      chainName:   'Solana',
-      chainKey:    'sol',
-      symbol:      'SOL',
-      description: tx.description || tx.type || 'Solana transaction',
-    })),
+    transactions: txJson.map(tx => {
+      // Helius returns native transfer amounts in lamports (1 SOL = 1e9 lamports)
+      const lamports = tx.nativeTransfers?.[0]?.amount || 0;
+      const solAmount = (lamports / 1e9).toFixed(6);
+      return {
+        hash:        tx.signature || '',
+        timeStamp:   tx.timestamp || 0,
+        timestamp:   tx.timestamp || 0,  // keep both keys for sort compatibility
+        from:        tx.feePayer || address,
+        to:          tx.nativeTransfers?.[0]?.toUserAccount || '',
+        value:       solAmount,          // human-readable SOL, not raw lamports
+        valueLamports: lamports,
+        isError:     !!tx.transactionError,
+        type:        tx.type || 'TRANSACTION',
+        chainName:   'Solana',
+        chainKey:    'sol',
+        symbol:      'SOL',
+        description: tx.description || tx.type || 'Solana transaction',
+      };
+    }),
     error: null,
   };
 }
@@ -165,6 +172,7 @@ function buildFromSigs(sigResults, address) {
     transactions: (sigResults || []).map(s => ({
       hash:        s.signature,
       timeStamp:   s.blockTime || 0,
+      timestamp:   s.blockTime || 0,
       from:        address,
       to:          '',
       value:       '0',
