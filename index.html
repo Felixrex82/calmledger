@@ -1733,7 +1733,7 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
     const clean = raw.replace(/```json|```/g, '').trim().replace(/^[\s\S]*?({[\s\S]*})[\s\S]*$/, '$1');
     const data = JSON.parse(clean);
     realData = data;
-    applyAnalysis(data, txns, hasReal, stats);
+    applyAnalysis(data, txns, hasReal, stats, allTxns);
   } catch(e) {
     const isPreview = PROXY_BASE === null;
     if (e.rateLimited) {
@@ -1760,11 +1760,11 @@ Give a gentle, encouraging baseline wellness assessment. Respond with JSON only:
       : 'Analysis temporarily unavailable — please try again shortly.';
     const headline = isPreview ? 'Preview mode' : 'Analysis paused';
     if (!isPreview) console.warn('Analysis error:', e.message);
-    applyAnalysis({ score:72, headline, summary: msg, insight: msg, topConcern:null, riskLevel:'low', lateNightTrades:0, panicPatterns:0, wellnessImpact:0 }, [], false, null);
+    applyAnalysis({ score:72, headline, summary: msg, insight: msg, topConcern:null, riskLevel:'low', lateNightTrades:0, panicPatterns:0, wellnessImpact:0 }, [], false, null, []);
   }
 }
 
-function applyAnalysis(data, txns, hasReal, mergedStats=null) {
+function applyAnalysis(data, txns, hasReal, mergedStats=null, allTxns=null) {
   // Score ring
   const score = data.score || 72;
   const color = score >= 70 ? 'var(--sage)' : score >= 45 ? 'var(--amber)' : 'var(--terra)';
