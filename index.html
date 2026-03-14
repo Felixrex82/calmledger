@@ -1379,13 +1379,15 @@ function bootApp() {
   initPriceAlerts();
 
   // Analyze once per day — avoids burning API credits on every reload
+  // Only skip if: same day AND a successful analysis result exists (realData set)
   const lastAnalysis = localStorage.getItem('cc_last_analysis');
   const today = new Date().toDateString();
-  if (lastAnalysis !== today) {
-    localStorage.setItem('cc_last_analysis', today);
+  const alreadyRanToday = lastAnalysis === today && realData;
+  if (!alreadyRanToday) {
+    // Don't stamp the date here — applyAnalysis stamps it only on success
     analyzeWallet();
   } else {
-    // Still show last saved score from history
+    // Restore last known score display from history
     const last = appData.scoreHistory.slice(-1)[0];
     if (last) {
       document.getElementById('scoreNum').textContent = last.score;
