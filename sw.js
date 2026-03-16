@@ -3,8 +3,9 @@
  * Handles: offline caching, push notifications, notification scheduling
  */
 
-const CACHE_NAME = 'calmledger-v8';
-const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE_NAME = 'calmledger-v5';
+// Never cache index.html — always fetch fresh from network so deploys take effect immediately
+const STATIC_ASSETS = ['/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)));
@@ -19,7 +20,24 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.url.includes('/api/') || e.request.url.includes('anthropic.com') || e.request.url.includes('supabase')) return;
+  const url = e.request.url;
+
+  // Always bypass SW for API calls, auth, and analytics
+  if (url.includes('/api/') || url.includes('anthropic.com') || url.includes('supabase')) return;
+
+  // Always fetch index.html fresh from network — never serve from cache
+  // This ensures every deploy is picked up immediately without bumping SW version
+  const isHtmlNav = e.request.mode === 'navigate' ||
+    url.endsWith('/') || url.endsWith('/index.html') ||
+    (!url.includes('.') && !url.includes('/api/'));
+  if (isHtmlNav) {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Static assets (icons, manifest) — cache first
   e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request)));
 });
 
