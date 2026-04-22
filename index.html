@@ -2571,6 +2571,22 @@ function shareToTwitter() {
 }
 // ── End Wellness Card Generator ─────────────────────────────────────────────
 
+  // ── Sparkline ─────────────────────────────────────────────────────
+function drawSparkline() {
+  const data = [62,68,71,65,74,70,72,75,69,78,73,76,80,77];
+  const svg = document.getElementById('sparklineSvg');
+  if (!svg) return;
+  const W = 440, H = 72, pad = 6;
+  const min = Math.min(...data), max = Math.max(...data), range = max - min;
+  const pts = data.map((v,i) => ({ x:(i/(data.length-1))*W, y:H-((v-min)/range)*(H-pad*2)-pad }));
+  const linePath = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPath = `M0,${H} ${pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${W},${H} Z`;
+  svg.innerHTML = `<defs><linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ab89a" stop-opacity="0.25"/><stop offset="100%" stop-color="#7ab89a" stop-opacity="0"/></linearGradient></defs>
+    <path d="${areaPath}" fill="url(#sg2)"/>
+    <path d="${linePath}" fill="none" stroke="#7ab89a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${pts[pts.length-1].x}" cy="${pts[pts.length-1].y}" r="3.5" fill="#7ab89a"/>`;
+}
+
 </script>
 </body>
 </html>
