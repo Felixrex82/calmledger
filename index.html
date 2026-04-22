@@ -887,8 +887,8 @@ body::before {
   </div>
 
   <!-- ── PROGRESS PAGE ───────────────────────────────────── -->
-  <div class="page" id="page-progress">
-    <div class="page-head">
+  <!-- <div class="page" id="page-progress"> -->
+    <!-- <div class="page-head">
       <h2>Progress</h2>
       <p>How your wellness has shifted over the past week.</p>
     </div>
@@ -900,7 +900,27 @@ body::before {
         <span style="font-size:0.62rem;color:var(--text-3);" id="chartRange"></span>
         <span style="font-size:0.62rem;color:var(--text-3);" id="chartAvg"></span>
       </div>
-    </div>
+    </div> -->
+
+     <div class="screen" id="screen-progress">
+      <div class="eyebrow">Behavioral patterns</div>
+      <div class="page-title">Your progress</div>
+      <div class="card" style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px">
+          <div>
+            <div class="card-label" style="margin-bottom:4px">Wellness trend</div>
+            <div style="font-family:var(--font-display);font-size:34px;color:var(--text);display:flex;align-items:baseline;gap:8px">
+              77 <span style="font-size:13px;color:var(--sage);font-family:var(--font-body)">↑ +15 pts</span>
+            </div>
+          </div>
+          <span style="font-size:12px;color:var(--text3)">14 weeks</span>
+        </div>
+        <svg width="100%" height="72" viewBox="0 0 440 72" preserveAspectRatio="none" id="sparklineSvg"></svg>
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-size:10px;color:var(--text3)">Jan W3</span>
+          <span style="font-size:10px;color:var(--text3)">Today</span>
+        </div>
+      </div>
 
     <div class="card">
       <!-- Period tabs -->
