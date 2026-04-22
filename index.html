@@ -72,6 +72,17 @@ body::before {
     radial-gradient(ellipse 50% 40% at 85% 100%, rgba(184,149,106,0.04) 0%, transparent 55%);
 }
 
+  /* ── Wellness ring ── */
+.wellness-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:20px; padding:32px 24px; display:flex; flex-direction:column; align-items:center; position:relative; overflow:hidden; margin-top:20px; }
+.wellness-glow { position:absolute; top:-50px; right:-50px; width:160px; height:160px; border-radius:50%; background:var(--sage-glow); filter:blur(50px); pointer-events:none; }
+.wellness-ring-wrap { position:relative; width:170px; height:170px; }
+.wellness-ring-wrap svg { transform:rotate(-90deg); }
+.ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ring-score { font-family:var(--font-display); font-size:46px; color:var(--text); line-height:1; }
+.ring-label { font-size:10px; color:var(--text3); margin-top:3px; letter-spacing:0.08em; text-transform:uppercase; }
+.wellness-desc { margin-top:16px; color:var(--text2); font-size:14px; text-align:center; line-height:1.65; }
+.wellness-desc strong { color:var(--sage); font-weight:500; }
+
 /* ── LAYOUT ──────────────────────────────────────────────── */
 .app-shell { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 
