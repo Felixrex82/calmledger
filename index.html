@@ -48,8 +48,8 @@
   /* Typography */
   --serif:  'Instrument Serif', Georgia, serif;
   --sans:   'Inter', system-ui, sans-serif;
-  .eyebrow { font-size:10px; color:var(--text3); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:5px; }
-  .page-title { font-family:var(--font-display); font-size:30px; color:var(--text); font-weight:400; line-height:1.2; }
+  /* .eyebrow { font-size:10px; color:var(--text3); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:5px; }
+  .page-title { font-family:var(--font-display); font-size:30px; color:var(--text); font-weight:400; line-height:1.2; } */
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -74,8 +74,8 @@ body::before {
     radial-gradient(ellipse 50% 40% at 85% 100%, rgba(184,149,106,0.04) 0%, transparent 55%);
 }
 
-  /* /* ── Wellness ring ── */
-.wellness-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:20px; padding:32px 24px; display:flex; flex-direction:column; align-items:center; position:relative; overflow:hidden; margin-top:20px; }
+   /* ── Wellness ring ── */
+/* .wellness-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:20px; padding:32px 24px; display:flex; flex-direction:column; align-items:center; position:relative; overflow:hidden; margin-top:20px; }
 .wellness-glow { position:absolute; top:-50px; right:-50px; width:160px; height:160px; border-radius:50%; background:var(--sage-glow); filter:blur(50px); pointer-events:none; }
 .wellness-ring-wrap { position:relative; width:170px; height:170px; }
 .wellness-ring-wrap svg { transform:rotate(-90deg); }
@@ -83,15 +83,15 @@ body::before {
 .ring-score { font-family:var(--font-display); font-size:46px; color:var(--text); line-height:1; }
 .ring-label { font-size:10px; color:var(--text3); margin-top:3px; letter-spacing:0.08em; text-transform:uppercase; }
 .wellness-desc { margin-top:16px; color:var(--text2); font-size:14px; text-align:center; line-height:1.65; }
-.wellness-desc strong { color:var(--sage); font-weight:500; } */
+.wellness-desc strong { color:var(--sage); font-weight:500; }  */
 
 /* ── LAYOUT ──────────────────────────────────────────────── */
 .app-shell { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 
 .page { display: none; flex: 1; padding: 0 0 90px; }
 .page.active { display: block; }
-  .screen { display:none; max-width:520px; margin:0 auto; padding:48px 32px 80px; animation:fadeUp 0.35s ease both; }
-.screen.active { display:block; }
+  /* .screen { display:none; max-width:520px; margin:0 auto; padding:48px 32px 80px; animation:fadeUp 0.35s ease both; }
+.screen.active { display:block; } */
 
 /* ── TOP NAV ─────────────────────────────────────────────── */
 .top-nav {
@@ -903,7 +903,7 @@ body::before {
 
   <!-- ── PROGRESS PAGE ───────────────────────────────────── -->
   <div class="page" id="page-progress">
-    <!-- <div class="page-head">
+    <div class="page-head">
       <h2>Progress</h2>
       <p>How your wellness has shifted over the past week.</p>
     </div>
@@ -915,9 +915,9 @@ body::before {
         <span style="font-size:0.62rem;color:var(--text-3);" id="chartRange"></span>
         <span style="font-size:0.62rem;color:var(--text-3);" id="chartAvg"></span>
       </div>
-    </div> -->
+    </div>
 
-     <div class="screen" id="screen-progress">
+     <!-- <div class="screen" id="screen-progress">
       <div class="eyebrow">Behavioral patterns</div>
       <div class="page-title">Your progress</div>
       <div class="card" style="margin-top:20px">
@@ -935,7 +935,7 @@ body::before {
           <span style="font-size:10px;color:var(--text3)">Jan W3</span>
           <span style="font-size:10px;color:var(--text3)">Today</span>
         </div>
-      </div>
+      </div> -->
 
     <div class="card">
       <!-- Period tabs -->
@@ -2586,21 +2586,21 @@ function shareToTwitter() {
 }
 // ── End Wellness Card Generator ─────────────────────────────────────────────
 
-  // ── Sparkline ─────────────────────────────────────────────────────
-function drawSparkline() {
-  const data = [62,68,71,65,74,70,72,75,69,78,73,76,80,77];
-  const svg = document.getElementById('sparklineSvg');
-  if (!svg) return;
-  const W = 440, H = 72, pad = 6;
-  const min = Math.min(...data), max = Math.max(...data), range = max - min;
-  const pts = data.map((v,i) => ({ x:(i/(data.length-1))*W, y:H-((v-min)/range)*(H-pad*2)-pad }));
-  const linePath = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-  const areaPath = `M0,${H} ${pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${W},${H} Z`;
-  svg.innerHTML = `<defs><linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ab89a" stop-opacity="0.25"/><stop offset="100%" stop-color="#7ab89a" stop-opacity="0"/></linearGradient></defs>
-    <path d="${areaPath}" fill="url(#sg2)"/>
-    <path d="${linePath}" fill="none" stroke="#7ab89a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${pts[pts.length-1].x}" cy="${pts[pts.length-1].y}" r="3.5" fill="#7ab89a"/>`;
-}
+//   // ── Sparkline ─────────────────────────────────────────────────────
+// function drawSparkline() {
+//   const data = [62,68,71,65,74,70,72,75,69,78,73,76,80,77];
+//   const svg = document.getElementById('sparklineSvg');
+//   if (!svg) return;
+//   const W = 440, H = 72, pad = 6;
+//   const min = Math.min(...data), max = Math.max(...data), range = max - min;
+//   const pts = data.map((v,i) => ({ x:(i/(data.length-1))*W, y:H-((v-min)/range)*(H-pad*2)-pad }));
+//   const linePath = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+//   const areaPath = `M0,${H} ${pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${W},${H} Z`;
+//   svg.innerHTML = `<defs><linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ab89a" stop-opacity="0.25"/><stop offset="100%" stop-color="#7ab89a" stop-opacity="0"/></linearGradient></defs>
+//     <path d="${areaPath}" fill="url(#sg2)"/>
+//     <path d="${linePath}" fill="none" stroke="#7ab89a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+//     <circle cx="${pts[pts.length-1].x}" cy="${pts[pts.length-1].y}" r="3.5" fill="#7ab89a"/>`;
+// }
 
 </script>
 </body>
