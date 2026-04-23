@@ -1064,6 +1064,34 @@ body::before {
 </nav>
 
 <script>
+
+  let isAuthenticated = false;
+  let pendingAction = null;
+
+  function requireAuth(action) {
+  if (isAuthenticated) {
+    action();
+  } else {
+    pendingAction = action;
+    openAuthModal();
+  }
+}
+  function openAuthModal() {
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.remove('hidden');
+}
+  function onAuthSuccess(user) {
+  isAuthenticated = true;
+
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.add('hidden');
+
+  if (pendingAction) {
+    pendingAction();
+    pendingAction = null;
+  }
+}
+  
 // Safe element accessor — never throws on missing elements
 const el = id => document.getElementById(id);
 const setDisplay = (id, val) => { const e = el(id); if (e) e.style.display = val; };
@@ -1696,11 +1724,15 @@ async function analyzeWallet() {
   setDisplay('analysisLoader', 'none');
 
   // ── Always run Claude AI analysis ──
-  await runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol, allTxns);
+  await requireAuth(() => runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol, allTxns);
 }
 
 function mergeStats(evm, sol) {
-  if (!evm && !sol) return null;
+  // if (!evm && !sol) return null;
+  if (!evmAddr && !solAddr) {
+  showToast('ℹ️', 'Connect a wallet to analyze trading behavior');
+  return;
+}
   const e = evm || {}, s = sol || {};
   return {
     lateNightTrades: (e.lateNightCount||e.lateNightTrades||0) + (s.lateNightCount||s.lateNightTrades||0),
@@ -1716,7 +1748,7 @@ function mergeStats(evm, sol) {
   };
 }
 
-async function runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr, allTxns) {
+await requireAuth(() => runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr, allTxns) {
   const memCtx = buildMemoryContext();
   const prompt = hasReal
     ? `Analyze this crypto trader's on-chain activity and give a wellness assessment.
@@ -2082,14 +2114,16 @@ const PROMPTS = {
 let ciMood = null, ciIntent = null;
 
 function openCheckin() {
-  const today = new Date().toDateString();
-  if (appData.lastCheckin === today) {
-    showToast('✓', 'Already checked in today');
-    return;
-  }
-  ciMood = null; ciIntent = null;
-  document.getElementById('checkinModal').classList.remove('hidden');
-  goStep(1);
+  requireAuth(() => {
+    const today = new Date().toDateString();
+    if (appData.lastCheckin === today) {
+      showToast('✓', 'Already checked in today');
+      return;
+    }
+    ciMood = null; ciIntent = null;
+    document.getElementById('checkinModal').classList.remove('hidden');
+    goStep(1);
+  });
 }
 
 function goStep(n) {
@@ -2186,8 +2220,9 @@ function selectMood(el, emoji) {
   selectedMoodEmoji = emoji;
 }
 
-async function saveJournal() {
-  const text = document.getElementById('journalInput').value.trim();
+function saveJournal() {
+  requireAuth(async () => {
+      const text = document.getElementById('journalInput').value.trim();
   if (!text) return;
   const now = new Date();
   const entry = {
@@ -2208,6 +2243,8 @@ async function saveJournal() {
   showToast('📓', 'Entry saved');
 }
 
+  });
+}
 function renderJournalItem(entry) {
   const list = document.getElementById('journalList');
   if (!list) return;
@@ -2266,8 +2303,9 @@ function buildMemoryContext() {
   return lines.join('\n');
 }
 
-async function sendMessage() {
-  const input = document.getElementById('chatInput');
+  function sendMessage() {
+  requireAuth(async () => {
+      const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text) return;
 
@@ -2301,6 +2339,7 @@ async function sendMessage() {
   } finally {
     document.getElementById('sendBtn').disabled = false;
   }
+  });
 }
 
 function handleChatKey(e) {
@@ -2565,7 +2604,8 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function downloadWellnessCard() {
-  const score = parseInt(document.getElementById('scoreNum')?.textContent);
+  requireAuth(() => {
+     const score = parseInt(document.getElementById('scoreNum')?.textContent);
   if (!score || isNaN(score)) { showToast('ℹ', 'Run a wallet analysis first to generate your card.'); return; }
   const canvas = buildWellnessCardCanvas();
   const a = document.createElement('a');
@@ -2573,6 +2613,7 @@ function downloadWellnessCard() {
   a.href = canvas.toDataURL('image/png');
   a.click();
   showToast('✓', 'Wellness card downloaded!');
+  });
 }
 
 function shareToTwitter() {
