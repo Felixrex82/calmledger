@@ -848,7 +848,7 @@ body::before {
       <div class="card-label">Wallet Analysis</div>
       <div id="analysisBody"></div>
       <div style="margin-top:12px;">
-        <div class="loading-bar" id="analysisLoadr" style="display:none;"> <div class="loading-bar-fill"></div></div>
+        <div class="loading-bar" id="analysisLoader" style="display:none;"> <div class="loading-bar-fill"></div></div>
          <div id="txList"></div> 
       </div>
     </div> 
@@ -1845,31 +1845,31 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null, allTxns=null) {
   body.innerHTML = `<span class="tag ${tag}">${data.riskLevel} risk</span>`;
 
   // Tx list
-  const txList = document.getElementById('txList');
-  if (txns.length > 0) {
-    txList.innerHTML = txns.slice(0,8).map(tx => {
-      const txTs = tx.timeStamp || tx.timestamp || 0;
-      const txHour = txTs ? new Date(txTs*1000).getHours() : -1;
-      const isLate = tx.isLateNight || (txHour >= 23 || (txHour >= 0 && txHour < 6));
-      const isPanic = tx.isPanic || tx.isRapidFire || false;
-      const ts = tx.timeStamp || tx.timestamp || 0;
-      const time = ts ? new Date(ts*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-      return `<div class="tx-item">
-        <div class="tx-icon">${tx.type==='swap'?'⇄':'↑'}</div>
-        <div class="tx-main">
-          <div class="tx-title">${tx.description||tx.type||'Transaction'}${isLate?'<span class="tx-badge late">late night</span>':''}${isPanic?'<span class="tx-badge panic">panic</span>':''}</div>
-          <div class="tx-sub">${tx.chain||''}</div>
-        </div>
-        <div class="tx-time">${time}</div>
-      </div>`;
-    }).join('');
-  } else {
-    txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
-  }
+  // const txList = document.getElementById('txList');
+  // if (txns.length > 0) {
+  //   txList.innerHTML = txns.slice(0,8).map(tx => {
+  //     const txTs = tx.timeStamp || tx.timestamp || 0;
+  //     const txHour = txTs ? new Date(txTs*1000).getHours() : -1;
+  //     const isLate = tx.isLateNight || (txHour >= 23 || (txHour >= 0 && txHour < 6));
+  //     const isPanic = tx.isPanic || tx.isRapidFire || false;
+  //     const ts = tx.timeStamp || tx.timestamp || 0;
+  //     const time = ts ? new Date(ts*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  //     return `<div class="tx-item">
+  //       <div class="tx-icon">${tx.type==='swap'?'⇄':'↑'}</div>
+  //       <div class="tx-main">
+  //         <div class="tx-title">${tx.description||tx.type||'Transaction'}${isLate?'<span class="tx-badge late">late night</span>':''}${isPanic?'<span class="tx-badge panic">panic</span>':''}</div>
+  //         <div class="tx-sub">${tx.chain||''}</div>
+  //       </div>
+  //       <div class="tx-time">${time}</div>
+  //     </div>`;
+  //   }).join('');
+  // } else {
+  //   txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
+  // }
 
   // Cache ALL txns (full list) for progress page period filtering
   // txns is sliced to 30 for the AI prompt — allTxns has everything
-  allTxCache = allTxns || txns || [];
+  // allTxCache = allTxns || txns || [];
 
   // Save to history
   addScoreToHistory(score);
