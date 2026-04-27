@@ -48,8 +48,6 @@
   /* Typography */
   --serif:  'Instrument Serif', Georgia, serif;
   --sans:   'Inter', system-ui, sans-serif;
-  /* .eyebrow { font-size:10px; color:var(--text3); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:5px; }
-  .page-title { font-family:var(--font-display); font-size:30px; color:var(--text); font-weight:400; line-height:1.2; } */
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -74,24 +72,11 @@ body::before {
     radial-gradient(ellipse 50% 40% at 85% 100%, rgba(184,149,106,0.04) 0%, transparent 55%);
 }
 
-   /* ── Wellness ring ── */
-/* .wellness-card { background:var(--bg2); border:0.5px solid var(--border); border-radius:20px; padding:32px 24px; display:flex; flex-direction:column; align-items:center; position:relative; overflow:hidden; margin-top:20px; }
-.wellness-glow { position:absolute; top:-50px; right:-50px; width:160px; height:160px; border-radius:50%; background:var(--sage-glow); filter:blur(50px); pointer-events:none; }
-.wellness-ring-wrap { position:relative; width:170px; height:170px; }
-.wellness-ring-wrap svg { transform:rotate(-90deg); }
-.ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.ring-score { font-family:var(--font-display); font-size:46px; color:var(--text); line-height:1; }
-.ring-label { font-size:10px; color:var(--text3); margin-top:3px; letter-spacing:0.08em; text-transform:uppercase; }
-.wellness-desc { margin-top:16px; color:var(--text2); font-size:14px; text-align:center; line-height:1.65; }
-.wellness-desc strong { color:var(--sage); font-weight:500; }  */
-
 /* ── LAYOUT ──────────────────────────────────────────────── */
 .app-shell { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
 
 .page { display: none; flex: 1; padding: 0 0 90px; }
 .page.active { display: block; }
-  /* .screen { display:none; max-width:520px; margin:0 auto; padding:48px 32px 80px; animation:fadeUp 0.35s ease both; }
-.screen.active { display:block; } */
 
 /* ── TOP NAV ─────────────────────────────────────────────── */
 .top-nav {
@@ -654,10 +639,10 @@ body::before {
         <span class="chain-pill" data-chain="base" onclick="toggleChain(this,'base')">Base</span>
       </div>
       <input class="addr-input" id="obEvm" placeholder="0x… address (optional)" oninput="obInputChanged()" />
-    </div> -->
+    </div>
 
     <!-- Solana box -->
-     <div class="wallet-box">
+    <div class="wallet-box">
       <div class="wallet-box-head">
         <span>◎</span>
         <strong>Solana Wallet</strong>
@@ -684,20 +669,34 @@ body::before {
       <div class="modal-title">Manage Wallets</div>
       <div class="modal-sub">Update your connected addresses.</div>
       <div class="wallet-box" style="margin-bottom:10px;">
-        <div class="wallet-box-head"><span>⬡</span><strong>EVM Wallet</strong></div>
-        <div class="chain-pills" id="manageChains">
-          <span class="chain-pill active" data-chain="eth" onclick="toggleChain(this,'eth')">Ethereum</span>
-          <span class="chain-pill active" data-chain="bsc" onclick="toggleChain(this,'bsc')">BNB</span>
-          <span class="chain-pill" data-chain="polygon" onclick="toggleChain(this,'polygon')">Polygon</span>
-          <span class="chain-pill" data-chain="arb" onclick="toggleChain(this,'arb')">Arbitrum</span>
-          <span class="chain-pill" data-chain="base" onclick="toggleChain(this,'base')">Base</span>
-        </div>
-        <input class="addr-input" id="manageEvm" placeholder="0x… EVM address" />
-      </div>
+  <div class="wallet-box-head">
+    <span>⬡</span><strong>Connect Wallet</strong>
+  </div>
+
+  <button onclick="connectEthereum()" style="width:100%;margin-top:10px;">
+    Connect MetaMask (Ethereum)
+  </button>
+
+  <button onclick="connectSolana()" style="width:100%;margin-top:10px;">
+    Connect Phantom (Solana)
+  </button>
+
+  <div id="connectedDisplay" style="margin-top:10px;font-size:0.75rem;color:var(--text-2);">
+    No wallet connected
+  </div>
+</div>
       <div class="wallet-box" style="margin-bottom:18px;">
-        <div class="wallet-box-head"><span>◎</span><strong>Solana Wallet</strong></div>
-        <input class="addr-input" id="manageSol" placeholder="Base58 Solana address" />
-      </div>
+  <div class="wallet-box-head">
+    <span>＋</span><strong>Add Wallets for Analysis</strong>
+  </div>
+
+  <input class="addr-input" id="manageEvm" placeholder="Paste Ethereum address" />
+  <input class="addr-input" id="manageSol" placeholder="Paste Solana address" style="margin-top:10px;" />
+
+  <div style="font-size:0.7rem;color:var(--text-2);margin-top:6px;">
+    These wallets are not verified as yours.
+  </div>
+</div>
       <div style="display:flex;gap:10px;">
         <button class="btn btn-secondary" style="flex:1;" onclick="closeManage()">Cancel</button>
         <button class="btn btn-primary" style="flex:1;" onclick="saveManage()">Save & Analyze</button>
@@ -849,7 +848,7 @@ body::before {
       <div class="card-label">Wallet Analysis</div>
       <div id="analysisBody"></div>
       <div style="margin-top:12px;">
-        <div class="loading-bar" id="analysisLoader" style="display:none;"> <div class="loading-bar-fill"></div></div>
+        <div class="loading-bar" id="analysisLoadr" style="display:none;"> <div class="loading-bar-fill"></div></div>
          <div id="txList"></div> 
       </div>
     </div> 
@@ -916,26 +915,6 @@ body::before {
         <span style="font-size:0.62rem;color:var(--text-3);" id="chartAvg"></span>
       </div>
     </div>
-
-     <!-- <div class="screen" id="screen-progress">
-      <div class="eyebrow">Behavioral patterns</div>
-      <div class="page-title">Your progress</div>
-      <div class="card" style="margin-top:20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px">
-          <div>
-            <div class="card-label" style="margin-bottom:4px">Wellness trend</div>
-            <div style="font-family:var(--font-display);font-size:34px;color:var(--text);display:flex;align-items:baseline;gap:8px">
-              77 <span style="font-size:13px;color:var(--sage);font-family:var(--font-body)">↑ +15 pts</span>
-            </div>
-          </div>
-          <span style="font-size:12px;color:var(--text3)">14 weeks</span>
-        </div>
-        <svg width="100%" height="72" viewBox="0 0 440 72" preserveAspectRatio="none" id="sparklineSvg"></svg>
-        <div style="display:flex;justify-content:space-between;margin-top:6px">
-          <span style="font-size:10px;color:var(--text3)">Jan W3</span>
-          <span style="font-size:10px;color:var(--text3)">Today</span>
-        </div>
-      </div> -->
 
     <div class="card">
       <!-- Period tabs -->
@@ -1064,34 +1043,6 @@ body::before {
 </nav>
 
 <script>
-
-  let isAuthenticated = false;
-  let pendingAction = null;
-
-  function requireAuth(action) {
-  if (isAuthenticated) {
-    action();
-  } else {
-    pendingAction = action;
-    openAuthModal();
-  }
-}
-  function openAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.remove('hidden');
-}
-  function onAuthSuccess(user) {
-  isAuthenticated = true;
-
-  const modal = document.getElementById('authModal');
-  if (modal) modal.classList.add('hidden');
-
-  if (pendingAction) {
-    pendingAction();
-    pendingAction = null;
-  }
-}
-  
 // Safe element accessor — never throws on missing elements
 const el = id => document.getElementById(id);
 const setDisplay = (id, val) => { const e = el(id); if (e) e.style.display = val; };
@@ -1724,15 +1675,11 @@ async function analyzeWallet() {
   setDisplay('analysisLoader', 'none');
 
   // ── Always run Claude AI analysis ──
-  await requireAuth(() => runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol, allTxns);
+  await runClaudeAnalysis(txns, stats, txns.length > 0, evm, sol, allTxns);
 }
 
 function mergeStats(evm, sol) {
-  // if (!evm && !sol) return null;
-  if (!evmAddr && !solAddr) {
-  showToast('ℹ️', 'Connect a wallet to analyze trading behavior');
-  return;
-}
+  if (!evm && !sol) return null;
   const e = evm || {}, s = sol || {};
   return {
     lateNightTrades: (e.lateNightCount||e.lateNightTrades||0) + (s.lateNightCount||s.lateNightTrades||0),
@@ -1748,7 +1695,7 @@ function mergeStats(evm, sol) {
   };
 }
 
-await requireAuth(() => runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr, allTxns) {
+async function runClaudeAnalysis(txns, stats, hasReal, evmAddr, solAddr, allTxns) {
   const memCtx = buildMemoryContext();
   const prompt = hasReal
     ? `Analyze this crypto trader's on-chain activity and give a wellness assessment.
@@ -1898,27 +1845,27 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null, allTxns=null) {
   body.innerHTML = `<span class="tag ${tag}">${data.riskLevel} risk</span>`;
 
   // Tx list
-  // const txList = document.getElementById('txList');
-  //  if (txns.length > 0) {
-  //   txList.innerHTML = txns.slice(0,8).map(tx => {
-  //     const txTs = tx.timeStamp || tx.timestamp || 0;
-  //     const txHour = txTs ? new Date(txTs*1000).getHours() : -1;
-  //     const isLate = tx.isLateNight || (txHour >= 23 || (txHour >= 0 && txHour < 6));
-  //     const isPanic = tx.isPanic || tx.isRapidFire || false;
-  //     const ts = tx.timeStamp || tx.timestamp || 0;
-  //     const time = ts ? new Date(ts*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-  //     return `<div class="tx-item">
-  //       <div class="tx-icon">${tx.type==='swap'?'⇄':'↑'}</div>
-  //       <div class="tx-main">
-  //         <div class="tx-title">${tx.description||tx.type||'Transaction'}${isLate?'<span class="tx-badge late">late night</span>':''}${isPanic?'<span class="tx-badge panic">panic</span>':''}</div>
-  //         <div class="tx-sub">${tx.chain||''}</div>
-  //       </div>
-  //       <div class="tx-time">${time}</div>
-  //     </div>`;
-  //   }).join('');
-  // } else {
-  //   txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
-  // } 
+  const txList = document.getElementById('txList');
+  if (txns.length > 0) {
+    txList.innerHTML = txns.slice(0,8).map(tx => {
+      const txTs = tx.timeStamp || tx.timestamp || 0;
+      const txHour = txTs ? new Date(txTs*1000).getHours() : -1;
+      const isLate = tx.isLateNight || (txHour >= 23 || (txHour >= 0 && txHour < 6));
+      const isPanic = tx.isPanic || tx.isRapidFire || false;
+      const ts = tx.timeStamp || tx.timestamp || 0;
+      const time = ts ? new Date(ts*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      return `<div class="tx-item">
+        <div class="tx-icon">${tx.type==='swap'?'⇄':'↑'}</div>
+        <div class="tx-main">
+          <div class="tx-title">${tx.description||tx.type||'Transaction'}${isLate?'<span class="tx-badge late">late night</span>':''}${isPanic?'<span class="tx-badge panic">panic</span>':''}</div>
+          <div class="tx-sub">${tx.chain||''}</div>
+        </div>
+        <div class="tx-time">${time}</div>
+      </div>`;
+    }).join('');
+  } else {
+    txList.innerHTML = `<p style="font-size:0.78rem;color:var(--text-3);margin-top:8px;">${hasReal?'':'Demo mode — connect wallet via proxy for real data.'}</p>`;
+  }
 
   // Cache ALL txns (full list) for progress page period filtering
   // txns is sliced to 30 for the AI prompt — allTxns has everything
@@ -1934,8 +1881,8 @@ function applyAnalysis(data, txns, hasReal, mergedStats=null, allTxns=null) {
   // Regenerate insight cards now that we have real wallet data
   generateInsightCards();
   // Hide wallet CTA once wallet is connected
-  // const cta = document.getElementById('walletCta');
-  // if (cta) cta.style.display = 'none';
+  const cta = document.getElementById('walletCta');
+  if (cta) cta.style.display = 'none';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2114,16 +2061,14 @@ const PROMPTS = {
 let ciMood = null, ciIntent = null;
 
 function openCheckin() {
-  requireAuth(() => {
-    const today = new Date().toDateString();
-    if (appData.lastCheckin === today) {
-      showToast('✓', 'Already checked in today');
-      return;
-    }
-    ciMood = null; ciIntent = null;
-    document.getElementById('checkinModal').classList.remove('hidden');
-    goStep(1);
-  });
+  const today = new Date().toDateString();
+  if (appData.lastCheckin === today) {
+    showToast('✓', 'Already checked in today');
+    return;
+  }
+  ciMood = null; ciIntent = null;
+  document.getElementById('checkinModal').classList.remove('hidden');
+  goStep(1);
 }
 
 function goStep(n) {
@@ -2220,9 +2165,8 @@ function selectMood(el, emoji) {
   selectedMoodEmoji = emoji;
 }
 
-function saveJournal() {
-  requireAuth(async () => {
-      const text = document.getElementById('journalInput').value.trim();
+async function saveJournal() {
+  const text = document.getElementById('journalInput').value.trim();
   if (!text) return;
   const now = new Date();
   const entry = {
@@ -2243,8 +2187,6 @@ function saveJournal() {
   showToast('📓', 'Entry saved');
 }
 
-  });
-}
 function renderJournalItem(entry) {
   const list = document.getElementById('journalList');
   if (!list) return;
@@ -2303,9 +2245,8 @@ function buildMemoryContext() {
   return lines.join('\n');
 }
 
-  function sendMessage() {
-  requireAuth(async () => {
-      const input = document.getElementById('chatInput');
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text) return;
 
@@ -2339,7 +2280,6 @@ function buildMemoryContext() {
   } finally {
     document.getElementById('sendBtn').disabled = false;
   }
-  });
 }
 
 function handleChatKey(e) {
@@ -2604,8 +2544,7 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function downloadWellnessCard() {
-  requireAuth(() => {
-     const score = parseInt(document.getElementById('scoreNum')?.textContent);
+  const score = parseInt(document.getElementById('scoreNum')?.textContent);
   if (!score || isNaN(score)) { showToast('ℹ', 'Run a wallet analysis first to generate your card.'); return; }
   const canvas = buildWellnessCardCanvas();
   const a = document.createElement('a');
@@ -2613,7 +2552,6 @@ function downloadWellnessCard() {
   a.href = canvas.toDataURL('image/png');
   a.click();
   showToast('✓', 'Wellness card downloaded!');
-  });
 }
 
 function shareToTwitter() {
@@ -2627,22 +2565,99 @@ function shareToTwitter() {
 }
 // ── End Wellness Card Generator ─────────────────────────────────────────────
 
-//   // ── Sparkline ─────────────────────────────────────────────────────
-// function drawSparkline() {
-//   const data = [62,68,71,65,74,70,72,75,69,78,73,76,80,77];
-//   const svg = document.getElementById('sparklineSvg');
-//   if (!svg) return;
-//   const W = 440, H = 72, pad = 6;
-//   const min = Math.min(...data), max = Math.max(...data), range = max - min;
-//   const pts = data.map((v,i) => ({ x:(i/(data.length-1))*W, y:H-((v-min)/range)*(H-pad*2)-pad }));
-//   const linePath = pts.map((p,i) => `${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-//   const areaPath = `M0,${H} ${pts.map(p=>`L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')} L${W},${H} Z`;
-//   svg.innerHTML = `<defs><linearGradient id="sg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7ab89a" stop-opacity="0.25"/><stop offset="100%" stop-color="#7ab89a" stop-opacity="0"/></linearGradient></defs>
-//     <path d="${areaPath}" fill="url(#sg2)"/>
-//     <path d="${linePath}" fill="none" stroke="#7ab89a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-//     <circle cx="${pts[pts.length-1].x}" cy="${pts[pts.length-1].y}" r="3.5" fill="#7ab89a"/>`;
-// }
 
+</script>
+<script>
+let connectedWallets = {
+  eth: null,
+  sol: null
+};
+
+// ---------------- ETH ----------------
+async function connectEthereum() {
+  if (!window.ethereum) {
+    alert("MetaMask not installed");
+    return;
+  }
+
+  try {
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts"
+    });
+
+    const address = accounts[0];
+
+    await window.ethereum.request({
+      method: "personal_sign",
+      params: [
+        "Sign to verify wallet ownership for CalmLedger",
+        address
+      ]
+    });
+
+    connectedWallets.eth = address;
+
+    updateWalletUI();
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ---------------- SOL ----------------
+async function connectSolana() {
+  const provider = window.solana;
+
+  if (!provider || !provider.isPhantom) {
+    alert("Phantom not installed");
+    return;
+  }
+
+  try {
+    const resp = await provider.connect();
+    const address = resp.publicKey.toString();
+
+    await provider.signMessage(
+      new TextEncoder().encode("Sign to verify wallet ownership for CalmLedger"),
+      "utf8"
+    );
+
+    connectedWallets.sol = address;
+
+    updateWalletUI();
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ---------------- UI UPDATE ----------------
+function updateWalletUI() {
+  let text = "";
+
+  if (connectedWallets.eth) {
+    text += "ETH: " + shorten(connectedWallets.eth) + "<br>";
+  }
+
+  if (connectedWallets.sol) {
+    text += "SOL: " + shorten(connectedWallets.sol);
+  }
+
+  if (!text) text = "No wallet connected";
+
+  document.getElementById("connectedDisplay").innerHTML = text;
+
+  // update navbar label
+  document.getElementById("walletBtnLabel").innerText = "Connected";
+
+  // green dot
+  document.getElementById("walletDot").style.background = "#22c55e";
+}
+
+// ---------------- UTIL ----------------
+function shorten(addr) {
+  return addr.slice(0, 6) + "..." + addr.slice(-4);
+}
 </script>
 </body>
 </html>
